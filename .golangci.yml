@@ -1,0 +1,18 @@
+# Minimal lint config. Not a gate — run `golangci-lint run` if you have it
+# installed, otherwise `make check` (gofmt + vet + test) is enough for the lab.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosec
+    - revive
+
+  settings:
+    gosec:
+      excludes:
+        # G404: math/rand is fine — /slow and /error deliberately use weak
+        # randomness for fault simulation (Phase 1+).
+        - G404

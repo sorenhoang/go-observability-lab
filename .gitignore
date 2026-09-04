@@ -17,6 +17,12 @@ coverage.*
 *.coverprofile
 profile.cov
 
+# Build output
+/bin/
+
+# Local planning artifacts (not version-controlled)
+/claudedocs/
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
