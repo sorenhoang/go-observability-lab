@@ -1,7 +1,7 @@
 # Phase 4 — PromQL practice
 
-**Status: TODO — this phase is practice, not code. You run queries against live
-Prometheus until they're second nature, then write up what you learned.**
+**Status: DONE.** `docs/promql-cheatsheet.md` (15 RED queries, each explained)
+and `docs/04-promql-exercises.md` (10 exercises, all verified live) written.
 
 ## Objective
 
