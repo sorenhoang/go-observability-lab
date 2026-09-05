@@ -1,7 +1,6 @@
-.PHONY: run build test tidy vet fmt check
+.PHONY: run build test tidy vet fmt check up down load
 
-# --- Phase 0 targets -------------------------------------------------------
-# up / down / load arrive in Phase 3 with docker-compose.
+# --- Phase 0-3 targets -----------------------------------------------------
 
 # ENV_FILE picks which env profile to load, e.g.:
 #   make run                        -> .env (your local overrides, if present)
@@ -33,3 +32,12 @@ fmt: ## Format all Go source
 	gofmt -w .
 
 check: fmt vet test ## Format, vet, and test in one shot
+
+up: ## Start app + prometheus
+	docker compose up --build -d
+
+down: ## Stop the Docker Compose stack
+	docker compose down
+
+load: ## Start the k6 load generator against the running stack
+	docker compose --profile load run --rm --no-deps k6

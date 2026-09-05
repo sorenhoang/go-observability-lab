@@ -1,0 +1,19 @@
+# Keep the build context small and the COPY . . layer cache stable.
+.git
+.gitignore
+bin/
+claudedocs/
+docs/
+*.md
+.env
+.env.*
+!.env.example
+.editorconfig
+.golangci.yml
+docker-compose.yml
+Dockerfile
+.dockerignore
+prometheus/
+grafana/
+loadgen/
+alertmanager/
