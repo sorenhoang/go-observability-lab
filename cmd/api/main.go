@@ -28,7 +28,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewRouter(),
+		Handler: api.NewRouter(cfg),
 		// ReadHeaderTimeout guards against slowloris; without it gosec (G112)
 		// flags the server and a single slow client can pin a connection.
 		ReadHeaderTimeout: 5 * time.Second,
