@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+    environment:
+      # API_ADDR is intentionally not overridable here: the container port is
+      # fixed at 8080 (EXPOSE + the port mapping above). Change API_HOST_PORT
+      # if 8080 is taken on your host.
+      API_SHUTDOWN_TIMEOUT: "${API_SHUTDOWN_TIMEOUT:-10s}"
+      API_SLOW_MIN_MS: "${API_SLOW_MIN_MS:-50}"
+      API_SLOW_MAX_MS: "${API_SLOW_MAX_MS:-2000}"
+      API_ERROR_RATE: "${API_ERROR_RATE:-0.3}"
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    ports:
+      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - app
+
+  k6:
+    image: grafana/k6:2.2.0
+    profiles:
+      - load
+    volumes:
+      - ./loadgen:/scripts:ro
+    environment:
+      BASE_URL: "http://app:8080"
+    command:
+      - run
+      - /scripts/script.js
+    depends_on:
+      - app
+
+volumes:
+  prometheus_data:

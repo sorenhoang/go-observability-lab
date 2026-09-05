@@ -1,6 +1,9 @@
 # Phase 3 — Prometheus server, scraping, load generator
 
-**Status: TODO — you code this manually, then ask for a review.**
+**Status: DONE.** `docker compose up` runs app + Prometheus; `make load` drives
+a weighted k6 script. Verified live: target UP, `up` flips on stop/start,
+per-route request rate matches the script's traffic shape. Healthcheck
+deliberately skipped (distroless image, no dependency worth checking yet).
 
 ## Objective
 
