@@ -22,9 +22,13 @@ dashboards, and alerting. Effort is intentionally weighted **~20% application co
 ### Phase 0–2 (local Go)
 
 ```sh
-make run          # start the API on :8080
+cp .env.example .env   # optional: your local tunable overrides
+make run                # start the API on :8080 (loads .env if present)
 curl localhost:8080/health
 ```
+
+See [docs/config.md](docs/config.md) for how config/env files work and how
+per-environment profiles fit in.
 
 ### Phase 3+ (Docker Compose)
 
@@ -44,8 +48,8 @@ make down
 
 ## Phase checklist
 
-- [ ] **P0** Repository bootstrap — skeleton, Makefile, docs, `make run` works
-- [ ] **P1** Simple Go API — 6 endpoints, in-memory data, `/slow` + `/error` behave
+- [x] **P0** Repository bootstrap — skeleton, Makefile, docs, `make run` works
+- [x] **P1** Simple Go API — 6 endpoints, in-memory data, `/slow` + `/error` behave
 - [ ] **P2** Prometheus instrumentation — 4 RED metrics by hand, `/metrics` live, route templates
 - [ ] **P3** Prometheus server + scraping + load generator — target UP, live traffic, `up` works
 - [ ] **P4** PromQL practice — cheatsheet filled by doing; write error-rate / P95 unaided
@@ -59,6 +63,7 @@ make down
 | Doc | What |
 |-----|------|
 | [docs/roadmap.md](docs/roadmap.md) | Full phased roadmap |
+| [docs/config.md](docs/config.md) | Env vars, `.env` files, per-environment profiles |
 | [docs/00-intro.md](docs/00-intro.md) | Why observability; why this lab is metrics-only |
 | [docs/glossary.md](docs/glossary.md) | Counter, gauge, histogram, cardinality, scrape, … |
 | [docs/phases/](docs/phases/) | Detailed build guide per phase |

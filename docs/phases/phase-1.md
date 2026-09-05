@@ -1,6 +1,9 @@
 # Phase 1 — Simple Go API
 
-**Status: TODO — you code this manually, then ask for a review.**
+**Status: DONE.** Six endpoints, in-memory data, two fault simulators, full table
+tests. Post-review fixes applied: `/slow` respects `r.Context()` cancellation,
+config values are range-clamped in `Load()`, `/users` + `/products` are plain
+functions (no unused receiver).
 
 ## Objective
 
