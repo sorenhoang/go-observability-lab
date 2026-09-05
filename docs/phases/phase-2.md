@@ -1,6 +1,9 @@
 # Phase 2 — Prometheus instrumentation
 
-**Status: TODO — you code this manually, then ask for a review.**
+**Status: DONE.** Dedicated registry, RED middleware with panic-safe recording,
+per-route wrapping on a single `ServeMux` (the nested-mux `r.Pattern` trap was
+avoided), and a Summary kept purely as a contrast to the Histogram. Verified
+live against a running server, not just unit tests.
 
 **This is the core learning phase. Go slow.** Everything before it was setup;
 everything after it reuses what you build here.

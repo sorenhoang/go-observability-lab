@@ -18,6 +18,7 @@ import (
 
 	"github.com/sorenhoang/go-observability-lab/internal/api"
 	"github.com/sorenhoang/go-observability-lab/internal/config"
+	"github.com/sorenhoang/go-observability-lab/internal/metrics"
 )
 
 func main() {
@@ -25,10 +26,11 @@ func main() {
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
+	m := metrics.New()
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewRouter(cfg),
+		Handler: api.NewRouter(cfg, m),
 		// ReadHeaderTimeout guards against slowloris; without it gosec (G112)
 		// flags the server and a single slow client can pin a connection.
 		ReadHeaderTimeout: 5 * time.Second,
