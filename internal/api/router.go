@@ -11,7 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sorenhoang/go-observability-lab/internal/config"
+	"github.com/sorenhoang/go-observability-lab/internal/metrics"
 )
 
 // startedAt is captured at process start so /health can report uptime.
@@ -19,6 +21,7 @@ var startedAt = time.Now()
 
 type Handlers struct {
 	cfg      config.Config
+	metrics  *metrics.Metrics
 	orderSeq atomic.Int64
 }
 
@@ -27,16 +30,18 @@ type Handlers struct {
 // It uses the standard library http.ServeMux with Go 1.22+ method/pattern
 // routing (e.g. "GET /health"). No third-party router: the point of the lab
 // is to keep the middleware seam visible, and ServeMux is enough.
-func NewRouter(cfg config.Config) http.Handler {
-	h := &Handlers{cfg: cfg}
+func NewRouter(cfg config.Config, m *metrics.Metrics) http.Handler {
+	h := &Handlers{cfg: cfg, metrics: m}
+	instrument := m.Instrument(routePattern)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", handleHealth)
-	mux.HandleFunc("GET /users", handleUsers)
-	mux.HandleFunc("GET /products", handleProducts)
-	mux.HandleFunc("POST /orders", h.handleCreateOrder)
-	mux.HandleFunc("GET /slow", h.handleSlow)
-	mux.HandleFunc("GET /error", h.handleError)
+	mux.Handle("GET /health", instrument(http.HandlerFunc(handleHealth)))
+	mux.Handle("GET /users", instrument(http.HandlerFunc(handleUsers)))
+	mux.Handle("GET /products", instrument(http.HandlerFunc(handleProducts)))
+	mux.Handle("POST /orders", instrument(http.HandlerFunc(h.handleCreateOrder)))
+	mux.Handle("GET /slow", instrument(http.HandlerFunc(h.handleSlow)))
+	mux.Handle("GET /error", instrument(http.HandlerFunc(h.handleError)))
+	mux.Handle("GET /metrics", promhttp.HandlerFor(m.Registry(), promhttp.HandlerOpts{}))
 	return mux
 }
 

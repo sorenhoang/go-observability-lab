@@ -50,7 +50,7 @@ make down
 
 - [x] **P0** Repository bootstrap — skeleton, Makefile, docs, `make run` works
 - [x] **P1** Simple Go API — 6 endpoints, in-memory data, `/slow` + `/error` behave
-- [ ] **P2** Prometheus instrumentation — 4 RED metrics by hand, `/metrics` live, route templates
+- [x] **P2** Prometheus instrumentation — 4 RED metrics by hand, `/metrics` live, route templates
 - [ ] **P3** Prometheus server + scraping + load generator — target UP, live traffic, `up` works
 - [ ] **P4** PromQL practice — cheatsheet filled by doing; write error-rate / P95 unaided
 - [ ] **P5** Grafana RED dashboard — provisioned, all panels + latency heatmap + `$route`

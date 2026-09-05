@@ -68,6 +68,7 @@ func (h *Handlers) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := h.orderSeq.Add(1)
+	h.metrics.OrderCreated()
 	writeJSON(w, http.StatusCreated, orderResponse{
 		OrderID:   id,
 		ProductID: req.ProductID,
