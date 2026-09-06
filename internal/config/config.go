@@ -25,6 +25,9 @@ type Config struct {
 
 	// ErrorRate controls the default simulated failure probability for GET /error.
 	ErrorRate float64
+
+	// AdminToken protects failure-simulation control endpoints when set.
+	AdminToken string
 }
 
 // Load reads configuration from the environment, applying defaults for any
@@ -38,6 +41,7 @@ func Load() Config {
 		SlowMinMs:       getenvInt("API_SLOW_MIN_MS", 50),
 		SlowMaxMs:       getenvInt("API_SLOW_MAX_MS", 2000),
 		ErrorRate:       getenvFloat("API_ERROR_RATE", 0.3),
+		AdminToken:      getenv("API_ADMIN_TOKEN", ""),
 	}
 
 	c.ErrorRate = min(max(c.ErrorRate, 0), 1)

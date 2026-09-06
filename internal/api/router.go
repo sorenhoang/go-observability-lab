@@ -22,6 +22,7 @@ var startedAt = time.Now()
 type Handlers struct {
 	cfg      config.Config
 	metrics  *metrics.Metrics
+	chaos    *Chaos
 	orderSeq atomic.Int64
 }
 
@@ -31,16 +32,34 @@ type Handlers struct {
 // routing (e.g. "GET /health"). No third-party router: the point of the lab
 // is to keep the middleware seam visible, and ServeMux is enough.
 func NewRouter(cfg config.Config, m *metrics.Metrics) http.Handler {
-	h := &Handlers{cfg: cfg, metrics: m}
+	chaos := NewChaos(m)
+	h := &Handlers{cfg: cfg, metrics: m, chaos: chaos}
 	instrument := m.Instrument(routePattern)
+	// business: instrumented + subject to fault injection.
+	// plain: instrumented but never chaos-affected (health probes must stay honest).
+	// control: instrumented + token-guarded, never chaos-affected.
+	business := func(fn http.HandlerFunc) http.Handler {
+		return instrument(chaos.Middleware(fn))
+	}
+	plain := func(fn http.HandlerFunc) http.Handler {
+		return instrument(http.HandlerFunc(fn))
+	}
+	control := func(fn http.HandlerFunc) http.Handler {
+		return instrument(requireAdmin(cfg, http.HandlerFunc(fn)))
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /health", instrument(http.HandlerFunc(handleHealth)))
-	mux.Handle("GET /users", instrument(http.HandlerFunc(handleUsers)))
-	mux.Handle("GET /products", instrument(http.HandlerFunc(handleProducts)))
-	mux.Handle("POST /orders", instrument(http.HandlerFunc(h.handleCreateOrder)))
-	mux.Handle("GET /slow", instrument(http.HandlerFunc(h.handleSlow)))
-	mux.Handle("GET /error", instrument(http.HandlerFunc(h.handleError)))
+	mux.Handle("GET /health", plain(handleHealth))
+	mux.Handle("GET /users", business(handleUsers))
+	mux.Handle("GET /products", business(handleProducts))
+	mux.Handle("POST /orders", business(h.handleCreateOrder))
+	mux.Handle("GET /slow", business(h.handleSlow))
+	mux.Handle("GET /error", business(h.handleError))
+	mux.Handle("GET /cpu", control(h.handleCPU))
+	mux.Handle("GET /leak", control(h.handleLeak))
+	mux.Handle("POST /leak/reset", control(h.handleLeakReset))
+	mux.Handle("GET /admin/chaos", control(h.handleGetChaos))
+	mux.Handle("POST /admin/chaos", control(h.handleSetChaos))
 	mux.Handle("GET /metrics", promhttp.HandlerFor(m.Registry(), promhttp.HandlerOpts{}))
 	return mux
 }

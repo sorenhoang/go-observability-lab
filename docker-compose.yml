@@ -11,6 +11,7 @@ services:
       API_SLOW_MIN_MS: "${API_SLOW_MIN_MS:-50}"
       API_SLOW_MAX_MS: "${API_SLOW_MAX_MS:-2000}"
       API_ERROR_RATE: "${API_ERROR_RATE:-0.3}"
+      API_ADMIN_TOKEN: "${API_ADMIN_TOKEN:-}"
 
   prometheus:
     image: prom/prometheus:v3.7.3

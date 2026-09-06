@@ -15,6 +15,7 @@ type Metrics struct {
 	requestDurationSummary *prometheus.SummaryVec
 	requestsInProgress     *prometheus.GaugeVec
 	ordersCreated          prometheus.Counter
+	chaosEnabled           prometheus.Gauge
 }
 
 func New() *Metrics {
@@ -47,6 +48,10 @@ func New() *Metrics {
 			Name: "orders_created_total",
 			Help: "Total orders successfully created.",
 		}),
+		chaosEnabled: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "chaos_enabled",
+			Help: "Whether runtime chaos injection is enabled.",
+		}),
 	}
 
 	reg.MustRegister(
@@ -55,6 +60,7 @@ func New() *Metrics {
 		m.requestDurationSummary,
 		m.requestsInProgress,
 		m.ordersCreated,
+		m.chaosEnabled,
 	)
 	return m
 }
@@ -69,4 +75,13 @@ func (m *Metrics) Registry() *prometheus.Registry {
 // not an HTTP one.
 func (m *Metrics) OrderCreated() {
 	m.ordersCreated.Inc()
+}
+
+// ChaosEnabled records whether runtime fault injection is enabled.
+func (m *Metrics) ChaosEnabled(enabled bool) {
+	if enabled {
+		m.chaosEnabled.Set(1)
+		return
+	}
+	m.chaosEnabled.Set(0)
 }

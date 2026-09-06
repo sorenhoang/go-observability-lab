@@ -1,6 +1,6 @@
 # Phase 6 — Failure simulation
 
-**Status: TODO — you code this manually, then ask for a review.**
+**Status: DONE.** Runtime chaos control plane (`/admin/chaos`, `/cpu`, `/leak`) behind an `API_ADMIN_TOKEN` guard, injection middleware wired `instrument(chaos(h))`, a `chaos_enabled` gauge + annotation, `loadgen/spike.js`, a Runtime/Saturation dashboard row, and the failure playbook. Every fault verified live against Prometheus.
 
 ## Objective
 
@@ -158,11 +158,14 @@ instrument := m.Instrument(routePattern)
 business := func(fn http.HandlerFunc) http.Handler {
 	return instrument(chaos.Middleware(fn))
 }
+plain := func(fn http.HandlerFunc) http.Handler { // instrumented, never chaos-affected
+	return instrument(http.HandlerFunc(fn))
+}
 control := func(fn http.HandlerFunc) http.Handler {
 	return instrument(requireAdmin(cfg, http.HandlerFunc(fn)))
 }
 
-mux.Handle("GET /health",    business(handleHealth))
+mux.Handle("GET /health",    plain(handleHealth))    // a health probe must stay honest
 mux.Handle("GET /users",     business(handleUsers))
 // ... products, orders, slow, error via business()
 mux.Handle("GET /cpu",           control(h.handleCPU))
