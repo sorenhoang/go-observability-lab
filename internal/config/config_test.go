@@ -35,7 +35,7 @@ func TestLoadClampsMinAboveMax(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Force-unset so the test is hermetic regardless of the caller's env.
-	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS"} {
+	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN"} {
 		t.Setenv(k, "")
 	}
 
@@ -49,5 +49,18 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if c.SlowMinMs != 50 || c.SlowMaxMs != 2000 {
 		t.Fatalf("slow bounds = [%d,%d], want [50,2000]", c.SlowMinMs, c.SlowMaxMs)
+	}
+	if c.AdminToken != "" {
+		t.Fatalf("AdminToken = %q, want empty", c.AdminToken)
+	}
+}
+
+func TestLoadReadsAdminToken(t *testing.T) {
+	t.Setenv("API_ADMIN_TOKEN", "secret")
+
+	c := Load()
+
+	if c.AdminToken != "secret" {
+		t.Fatalf("AdminToken = %q, want secret", c.AdminToken)
 	}
 }

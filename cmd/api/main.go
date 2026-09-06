@@ -27,6 +27,9 @@ func main() {
 
 	cfg := config.Load()
 	m := metrics.New()
+	if cfg.AdminToken == "" {
+		slog.Warn("API_ADMIN_TOKEN is unset; chaos control endpoints are open")
+	}
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,

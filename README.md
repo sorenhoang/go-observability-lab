@@ -54,7 +54,7 @@ make down
 - [x] **P3** Prometheus server + scraping + load generator — target UP, live traffic, `up` works
 - [x] **P4** PromQL practice — cheatsheet filled by doing; write error-rate / P95 unaided
 - [x] **P5** Grafana RED dashboard — provisioned, all panels + latency heatmap + `$route`
-- [ ] **P6** Failure simulation — fault injection + runtime metrics + failure playbook
+- [x] **P6** Failure simulation — fault injection + runtime metrics + failure playbook
 - [ ] **P7** Recording rules + alerting — Alertmanager + webhook sink, alerts fire
 - [ ] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
 

@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check up down load dash
+.PHONY: run build test tidy vet fmt check up down load spike dash
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -41,6 +41,9 @@ down: ## Stop the Docker Compose stack
 
 load: ## Start the k6 load generator against the running stack
 	docker compose --profile load run --rm --no-deps k6
+
+spike: ## Run the k6 traffic-spike scenario
+	docker compose --profile load run --rm --no-deps k6 run /scripts/spike.js
 
 dash: ## Open the Grafana RED dashboard
 	open http://localhost:3000/d/red
