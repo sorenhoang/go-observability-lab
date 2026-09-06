@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check up down load
+.PHONY: run build test tidy vet fmt check up down load dash
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -41,3 +41,6 @@ down: ## Stop the Docker Compose stack
 
 load: ## Start the k6 load generator against the running stack
 	docker compose --profile load run --rm --no-deps k6
+
+dash: ## Open the Grafana RED dashboard
+	open http://localhost:3000/d/red
