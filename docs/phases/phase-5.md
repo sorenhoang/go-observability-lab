@@ -1,6 +1,13 @@
 # Phase 5 — Grafana RED dashboard
 
-**Status: TODO — you build this manually, then ask for a review.**
+**Status: DONE.** Grafana provisioned in Compose; datasource (UID `prometheus`)
+and an 8-panel RED dashboard load from disk on a fresh `make up`. Verified: all
+panel queries return data through the Grafana proxy, `$route` filters every
+per-route panel, error % stat reacts to a fault burst, dashboard survives
+restart from `red.json`.
+
+> Grafana 12 reports `meta.provisioned: false` on the API even for provisioned
+> dashboards — `meta.provisionedExternalId: "red.json"` is the reliable signal.
 
 ## Objective
 
