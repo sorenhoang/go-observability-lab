@@ -122,3 +122,20 @@ Linux VM that runs Docker containers, not the physical host OS. This compose fil
 mounts `/` without Linux bind propagation flags because Docker Desktop can reject
 `rslave` with "not a shared or slave mount". That is expected for this lab; the
 learning objective is the observability pattern.
+
+## Known gaps
+
+These shipped as-is (Phase 8, PR #9) and are left in as teaching artefacts. See
+[`docs/phases/phase-8.md`](phases/phase-8.md#known-issues) for the full write-up.
+
+1. **Kafka publishing is off after a cold `make up`.** The producer does a
+   one-shot startup dial with no retry and compose only waits for the Kafka
+   *process*, not a ready broker. `docker compose restart app` once the stack is
+   up, or fix the producer to lean on `kafka-go`'s built-in reconnect.
+2. **`HostDiskFillingUp` and the disk panel are empty.** `--path.rootfs=/host`
+   makes node-exporter strip the `/host` prefix from `mountpoint` labels, so
+   `node_filesystem_avail_bytes{mountpoint="/host"}` never matches. Point the
+   rule and panel at `mountpoint="/"` or `mountpoint="/var/lib/docker"`.
+3. **A Redis blip at startup disables the cache for the process lifetime.** The
+   per-request path already falls through to Postgres correctly; the startup Ping
+   should be advisory, not a one-way switch.

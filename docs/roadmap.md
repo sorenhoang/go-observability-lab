@@ -224,16 +224,44 @@ are lifted straight from Phase 4's queries, which need Phase 3's live data.
 
 ---
 
-## Phase 8 — Infrastructure observability (deferred; modular sub-phases)
+## Phase 8 — Infrastructure observability (modular sub-phases)
 
-Gets its own `/sr:plan` before implementation. Sketch only:
+1. **Objective** — Add the real systems the app depends on and observe them with
+   the pattern for things you can't put middleware inside: **exporters**.
+2. **Concepts** — the exporter pattern; app-side vs exporter metrics (two
+   viewpoints on one subsystem); **RED for services, USE for resources**;
+   consumer lag as the async-health signal; exporter cardinality; the
+   self-healing-client-plus-one-shot-startup-probe anti-pattern.
+3. **Components** — `internal/store` (`database/sql` + pgx), `internal/cache`
+   (`go-redis`), `internal/events` + `cmd/consumer` (`kafka-go`);
+   `postgres` + `postgres-exporter`, `redis` + `redis-exporter`,
+   `kafka` (KRaft) + `kafka-exporter`, `node-exporter`, `cadvisor`;
+   `grafana/dashboards/infra.json`, `postgres/initdb/`.
 
-| Sub-phase | Adds | Own metrics |
-|-----------|------|-------------|
-| 8a Postgres | `postgres` + `postgres_exporter`, real `internal/store` layer | `pg_stat_*`, `db_query_duration_seconds` |
-| 8b Redis | `redis` + `redis_exporter` | `redis_commands_*`, `cache_hits_total` |
-| 8c Kafka | `kafka` + `kafka_exporter` | `kafka_consumergroup_lag` |
-| 8d Host/container | `node_exporter` + `cadvisor` | `node_cpu_seconds_total`, `container_memory_usage_bytes` |
+   | Sub-phase | Adds | Own metrics |
+   |-----------|------|-------------|
+   | 8a Postgres | real `internal/store`, `postgres_exporter` | `db_query_duration_seconds`, `db_pool_*`, `pg_stat_*` |
+   | 8b Redis | read-through products cache, `redis_exporter` | `cache_hits_total`, `cache_errors_total`, `redis_*` |
+   | 8c Kafka | best-effort order events + `cmd/consumer`, `kafka_exporter` | `orders_published_total`, `orders_consumed_total`, `kafka_consumergroup_lag` |
+   | 8d Host/container | `node_exporter` + `cadvisor` | `node_cpu_seconds_total`, `container_memory_working_set_bytes` |
+4. **Metrics** — the app-side counters/histograms above, plus everything the four
+   exporters expose.
+5. **PromQL / rules** — pool saturation (`rate(db_pool_wait_count_total[5m])`),
+   cache hit ratio, `sum(kafka_consumergroup_lag{...})`; new alerts
+   `OrderConsumerLagging` and `HostDiskFillingUp` on the Phase 7 chain;
+   `metric_relabel_configs` on the `cadvisor` scrape to drop unused series.
+6. **Dashboards** — `infra.json`, one row per sub-phase.
+7. **Repo changes** — `internal/{store,cache,events}/**`, `cmd/consumer/**`,
+   `postgres/initdb/**`, `docker-compose.yml`, `prometheus/prometheus.yml`,
+   `prometheus/rules/alerts.yml`, `grafana/dashboards/infra.json`,
+   `docs/08-infrastructure.md`.
+8. **Definition of Done**
+   - `/targets` shows 9 jobs UP (cadvisor best-effort on Docker Desktop)
+   - `make test` passes with no infra running (integration tests skip on unset env)
+   - app-side and exporter metrics both visible for each dependency
+   - Redis / Kafka down → the API degrades, never 5xx
+   - `OrderConsumerLagging` fires to the webhook sink under a throttled consumer
+   - Tagged `phase-8` — **shipped with 3 known gaps, see `docs/phases/phase-8.md`**
 
 **Concept** — exporters are the pattern for systems you can't instrument directly.
 
@@ -252,6 +280,10 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 | Counters reset on restart | P3 | `rate`/`increase` handle resets; manual diffing doesn't |
 | Rate window < ~4× scrape interval | P3, P4 | Gaps / NaN; standardize on `[5m]` |
 | High-cardinality labels: `user_id`, `order_id`, `email`, `session_id`, raw path, timestamp, IP, unbounded error string | P2 | Label value sets must be small and bounded |
+| SQL text as a metric label | P8 | Fixed call-site name (`orders.insert`), never the query string |
+| One exporter (`cadvisor`) inflates series count ~10x | P8 | `metric_relabel_configs` drops unused series before the TSDB |
+| Self-healing client gated on a one-shot startup dial | P8 | The client reconnects itself; degrade per-request, don't disable for the process lifetime |
+| `--path.rootfs` rewrites `mountpoint` labels | P8 | Query the label the exporter emits, not the container mount path |
 
 ## Metrics naming conventions
 

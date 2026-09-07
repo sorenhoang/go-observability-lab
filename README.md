@@ -30,11 +30,18 @@ curl localhost:8080/health
 See [docs/config.md](docs/config.md) for how config/env files work and how
 per-environment profiles fit in.
 
+> **From Phase 8 on, the API needs Postgres.** Bare `make run` exits unless it
+> can reach a database at `API_DATABASE_URL`. Either run the full stack with
+> `make up`, or start just the backing store (`docker compose up -d postgres`)
+> and point `.env` at `postgres://lab:lab@localhost:5432/lab?sslmode=disable`.
+
 ### Phase 3+ (Docker Compose)
 
 ```sh
-make up           # app + prometheus + grafana (arrives in Phase 3/5)
-make load         # start the k6 load generator (arrives in Phase 3)
+make up            # app + prometheus + grafana + (P7) alertmanager + (P8) postgres/redis/kafka + exporters
+make load          # start the k6 load generator (arrives in Phase 3)
+make spike         # ramping traffic-spike scenario (arrives in Phase 6)
+make dash          # open the RED dashboard  ·  make dash-infra for the infra one
 make down
 ```
 
@@ -43,9 +50,14 @@ make down
 | API          | http://localhost:8080   | P1      |
 | API metrics  | http://localhost:8080/metrics | P2 |
 | Prometheus   | http://localhost:9090   | P3      |
-| Grafana      | http://localhost:3000   | P5      |
+| Grafana / RED dashboard | http://localhost:3000/d/red | P5 |
 | Alertmanager | http://localhost:9093   | P7      |
 | Infra dashboard | http://localhost:3000/d/infra | P8 |
+
+Phase 8 also runs Postgres, Redis, a single-node Kafka, an order `consumer`, and
+five exporters (`postgres` / `redis` / `kafka` / `node` / `cadvisor`) — all
+scraped by Prometheus, none with a UI of their own. `docker compose ps` lists
+them; `http://localhost:9090/targets` shows all 9 scrape jobs.
 
 ## Phase checklist
 
@@ -57,7 +69,7 @@ make down
 - [x] **P5** Grafana RED dashboard — provisioned, all panels + latency heatmap + `$route`
 - [x] **P6** Failure simulation — fault injection + runtime metrics + failure playbook
 - [x] **P7** Recording rules + alerting — Alertmanager + webhook sink, alerts fire
-- [x] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
+- [x] **P8** Infrastructure observability — Postgres / Redis / Kafka / host+container exporters ([3 known gaps](docs/phases/phase-8.md#known-issues))
 
 ## Docs
 
