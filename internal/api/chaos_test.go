@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sorenhoang/go-observability-lab/internal/config"
-	"github.com/sorenhoang/go-observability-lab/internal/metrics"
 )
 
 func chaosReq(t *testing.T, router http.Handler, method, target, body, token string) *httptest.ResponseRecorder {
@@ -32,7 +31,7 @@ func chaosReq(t *testing.T, router http.Handler, method, target, body, token str
 }
 
 func TestChaosDisabledPassesThroughBusinessRoutes(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 
 	rec := chaosReq(t, router, http.MethodGet, "/users", "", "")
 
@@ -42,7 +41,7 @@ func TestChaosDisabledPassesThroughBusinessRoutes(t *testing.T) {
 }
 
 func TestChaosErrorRatioOneInjects500(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 	chaosReq(t, router, http.MethodPost, "/admin/chaos", `{"enabled":true,"error_ratio":1}`, "")
 
 	rec := chaosReq(t, router, http.MethodGet, "/users", "", "")
@@ -56,7 +55,7 @@ func TestChaosErrorRatioOneInjects500(t *testing.T) {
 }
 
 func TestChaosLatencyAddsDelay(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 	chaosReq(t, router, http.MethodPost, "/admin/chaos", `{"enabled":true,"latency_ms":25}`, "")
 
 	start := time.Now()
@@ -72,7 +71,7 @@ func TestChaosLatencyAddsDelay(t *testing.T) {
 }
 
 func TestChaosSetClampsValues(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 
 	rec := chaosReq(t, router, http.MethodPost, "/admin/chaos", `{"enabled":true,"latency_ms":999999,"error_ratio":2}`, "")
 
@@ -92,7 +91,7 @@ func TestChaosSetClampsValues(t *testing.T) {
 }
 
 func TestControlRoutesAreNotChaosAffected(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 	chaosReq(t, router, http.MethodPost, "/admin/chaos", `{"enabled":true,"error_ratio":1}`, "")
 
 	rec := chaosReq(t, router, http.MethodGet, "/admin/chaos", "", "")
@@ -103,7 +102,7 @@ func TestControlRoutesAreNotChaosAffected(t *testing.T) {
 }
 
 func TestAdminTokenRequiredWhenConfigured(t *testing.T) {
-	router := NewRouter(config.Config{AdminToken: "secret"}, metrics.New())
+	router := testRouterWithConfig(config.Config{AdminToken: "secret"})
 
 	unauthorized := chaosReq(t, router, http.MethodGet, "/admin/chaos", "", "")
 	if unauthorized.Code != http.StatusUnauthorized {
@@ -138,7 +137,7 @@ func TestClampAtoiCapsCPUSeconds(t *testing.T) {
 }
 
 func TestLeakGrowAndReset(t *testing.T) {
-	router := NewRouter(config.Config{}, metrics.New())
+	router := testRouterWithConfig(config.Config{})
 	chaosReq(t, router, http.MethodPost, "/leak/reset", "", "")
 
 	grow := chaosReq(t, router, http.MethodGet, "/leak?mb=1", "", "")

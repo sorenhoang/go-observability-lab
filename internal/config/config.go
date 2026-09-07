@@ -28,6 +28,18 @@ type Config struct {
 
 	// AdminToken protects failure-simulation control endpoints when set.
 	AdminToken string
+
+	// DatabaseURL points at the lab Postgres database. The API cannot serve
+	// without this source of truth.
+	DatabaseURL string
+
+	// RedisAddr points at the optional products cache. Redis failures degrade
+	// to database reads.
+	RedisAddr string
+
+	// KafkaBrokers is the comma-separated Kafka bootstrap list used for
+	// best-effort order events.
+	KafkaBrokers string
 }
 
 // Load reads configuration from the environment, applying defaults for any
@@ -42,6 +54,9 @@ func Load() Config {
 		SlowMaxMs:       getenvInt("API_SLOW_MAX_MS", 2000),
 		ErrorRate:       getenvFloat("API_ERROR_RATE", 0.3),
 		AdminToken:      getenv("API_ADMIN_TOKEN", ""),
+		DatabaseURL:     getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
+		RedisAddr:       getenv("API_REDIS_ADDR", "redis:6379"),
+		KafkaBrokers:    getenv("API_KAFKA_BROKERS", "kafka:9092"),
 	}
 
 	c.ErrorRate = min(max(c.ErrorRate, 0), 1)

@@ -12,7 +12,16 @@ import (
 )
 
 func testRouter() http.Handler {
-	return NewRouter(config.Config{}, metrics.New())
+	return testRouterWithPublisher(&recordingPublisher{})
+}
+
+func testRouterWithConfig(cfg config.Config) http.Handler {
+	return NewRouter(cfg, metrics.New(), newFakeStore(), passthroughCache{}, &recordingPublisher{})
+}
+
+func testRouterWithPublisher(publisher orderPublisher) http.Handler {
+	m := metrics.New()
+	return NewRouter(config.Config{}, m, newFakeStore(), passthroughCache{}, publisher)
 }
 
 func TestHealth(t *testing.T) {

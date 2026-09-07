@@ -6,18 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/sorenhoang/go-observability-lab/internal/events"
 )
-
-type user struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type product struct {
-	ID    int     `json:"id"`
-	Name  string  `json:"name"`
-	Price float64 `json:"price"`
-}
 
 type createOrderRequest struct {
 	ProductID int `json:"product_id"`
@@ -30,23 +21,21 @@ type orderResponse struct {
 	Qty       int   `json:"qty"`
 }
 
-var users = []user{
-	{ID: 1, Name: "Ada"},
-	{ID: 2, Name: "Alan"},
-	{ID: 3, Name: "Grace"},
-}
-
-var products = []product{
-	{ID: 1, Name: "Widget", Price: 9.99},
-	{ID: 2, Name: "Gadget", Price: 19.99},
-	{ID: 3, Name: "Gizmo", Price: 4.50},
-}
-
-func handleUsers(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) handleUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.store.Users(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list users failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, users)
 }
 
-func handleProducts(w http.ResponseWriter, _ *http.Request) {
+func (h *Handlers) handleProducts(w http.ResponseWriter, r *http.Request) {
+	products, err := h.cache.Products(r.Context(), h.store.Products)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list products failed")
+		return
+	}
 	writeJSON(w, http.StatusOK, products)
 }
 
@@ -62,13 +51,28 @@ func (h *Handlers) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "qty must be positive")
 		return
 	}
-	if !productExists(req.ProductID) {
+	exists, err := h.store.ProductExists(r.Context(), req.ProductID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "check product failed")
+		return
+	}
+	if !exists {
 		writeError(w, http.StatusNotFound, "product not found")
 		return
 	}
 
-	id := h.orderSeq.Add(1)
+	id, err := h.store.CreateOrder(r.Context(), req.ProductID, req.Qty)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "create order failed")
+		return
+	}
 	h.metrics.OrderCreated()
+	h.events.PublishOrder(r.Context(), events.OrderEvent{
+		OrderID:   id,
+		ProductID: req.ProductID,
+		Qty:       req.Qty,
+		TS:        time.Now().UTC(),
+	})
 	writeJSON(w, http.StatusCreated, orderResponse{
 		OrderID:   id,
 		ProductID: req.ProductID,
@@ -117,13 +121,4 @@ func (h *Handlers) handleError(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-func productExists(id int) bool {
-	for _, p := range products {
-		if p.ID == id {
-			return true
-		}
-	}
-	return false
 }

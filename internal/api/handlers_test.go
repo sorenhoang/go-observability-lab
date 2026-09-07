@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
-func doReq(t *testing.T, method, target string, body string) *httptest.ResponseRecorder {
+func doReqWithRouter(t *testing.T, router http.Handler, method, target string, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var r io.Reader
@@ -21,18 +23,23 @@ func doReq(t *testing.T, method, target string, body string) *httptest.ResponseR
 
 	req := httptest.NewRequest(method, target, r)
 	rec := httptest.NewRecorder()
-	testRouter().ServeHTTP(rec, req)
+	router.ServeHTTP(rec, req)
 	return rec
 }
 
-func TestUsersReturnsFakeUsers(t *testing.T) {
+func doReq(t *testing.T, method, target string, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	return doReqWithRouter(t, testRouter(), method, target, body)
+}
+
+func TestUsersReturnsUsersFromStore(t *testing.T) {
 	rec := doReq(t, http.MethodGet, "/users", "")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 
-	var got []user
+	var got []store.User
 	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
@@ -41,14 +48,14 @@ func TestUsersReturnsFakeUsers(t *testing.T) {
 	}
 }
 
-func TestProductsReturnsFakeProducts(t *testing.T) {
+func TestProductsReturnsProductsFromStore(t *testing.T) {
 	rec := doReq(t, http.MethodGet, "/products", "")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
 
-	var got []product
+	var got []store.Product
 	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}

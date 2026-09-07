@@ -27,3 +27,20 @@ groups:
         annotations:
           summary: "P95 latency above 1s"
           description: "P95 is {{ $value | humanizeDuration }} (threshold 1s) for 10m."
+
+      - alert: OrderConsumerLagging
+        expr: sum(kafka_consumergroup_lag{consumergroup="order-processors"}) > 500
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Order consumer group lag over 500"
+          description: "Lag is {{ $value }} for 3m - the async order pipeline is falling behind."
+
+      - alert: HostDiskFillingUp
+        expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/host"}[1h], 4*3600) < 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host data disk projected to fill within 4h"

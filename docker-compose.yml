@@ -12,6 +12,98 @@ services:
       API_SLOW_MAX_MS: "${API_SLOW_MAX_MS:-2000}"
       API_ERROR_RATE: "${API_ERROR_RATE:-0.3}"
       API_ADMIN_TOKEN: "${API_ADMIN_TOKEN:-}"
+      API_DATABASE_URL: "${API_DATABASE_URL:-postgres://lab:lab@postgres:5432/lab?sslmode=disable}"
+      API_REDIS_ADDR: "${API_REDIS_ADDR:-redis:6379}"
+      API_KAFKA_BROKERS: "${API_KAFKA_BROKERS:-kafka:9092}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+  postgres:
+    image: postgres:17.2
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: lab
+    volumes:
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      DATA_SOURCE_NAME: "postgresql://lab:lab@postgres:5432/lab?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+    depends_on:
+      - redis
+
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  consumer:
+    build: .
+    entrypoint: ["/consumer"]
+    environment:
+      CONSUMER_KAFKA_BROKERS: "${CONSUMER_KAFKA_BROKERS:-kafka:9092}"
+      CONSUMER_DELAY_MS: "${CONSUMER_DELAY_MS:-50}"
+    depends_on:
+      - kafka
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    command: ["--kafka.server=kafka:9092", "--group.filter=order-processors"]
+    depends_on:
+      - kafka
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - "/:/host:ro"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    privileged: true
+    devices:
+      - "/dev/kmsg"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
 
   prometheus:
     image: prom/prometheus:v3.7.3
@@ -24,6 +116,12 @@ services:
     depends_on:
       - app
       - alertmanager
+      - postgres-exporter
+      - redis-exporter
+      - kafka-exporter
+      - consumer
+      - node-exporter
+      - cadvisor
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
@@ -70,3 +168,4 @@ services:
 volumes:
   grafana_data:
   prometheus_data:
+  postgres_data:

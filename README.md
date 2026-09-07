@@ -45,6 +45,7 @@ make down
 | Prometheus   | http://localhost:9090   | P3      |
 | Grafana      | http://localhost:3000   | P5      |
 | Alertmanager | http://localhost:9093   | P7      |
+| Infra dashboard | http://localhost:3000/d/infra | P8 |
 
 ## Phase checklist
 
@@ -56,7 +57,7 @@ make down
 - [x] **P5** Grafana RED dashboard — provisioned, all panels + latency heatmap + `$route`
 - [x] **P6** Failure simulation — fault injection + runtime metrics + failure playbook
 - [x] **P7** Recording rules + alerting — Alertmanager + webhook sink, alerts fire
-- [ ] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
+- [x] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
 
 ## Docs
 

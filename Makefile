@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check check-config up down load spike dash
+.PHONY: run build test tidy vet fmt check check-config up down load spike dash dash-infra
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -51,3 +51,6 @@ spike: ## Run the k6 traffic-spike scenario
 
 dash: ## Open the Grafana RED dashboard
 	open http://localhost:3000/d/red
+
+dash-infra: ## Open the Grafana infrastructure dashboard
+	open http://localhost:3000/d/infra
