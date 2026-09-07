@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check up down load spike dash
+.PHONY: run build test tidy vet fmt check check-config up down load spike dash
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -33,7 +33,11 @@ fmt: ## Format all Go source
 
 check: fmt vet test ## Format, vet, and test in one shot
 
-up: ## Start app + prometheus
+check-config: ## Validate Prometheus rules and Alertmanager config
+	docker run --rm --entrypoint promtool -v $(PWD)/prometheus:/p prom/prometheus:v3.7.3 check rules /p/rules/recording.yml /p/rules/alerts.yml
+	docker run --rm --entrypoint amtool -v $(PWD)/alertmanager:/a prom/alertmanager:v0.28.1 check-config /a/alertmanager.yml
+
+up: ## Start app + prometheus + alertmanager + grafana
 	docker compose up --build -d
 
 down: ## Stop the Docker Compose stack

@@ -1,6 +1,6 @@
 # Phase 7 — Recording rules + alerting
 
-**Status: TODO — you code this manually, then ask for a review.**
+**Status: DONE.** Recording rules + 3 alerts, Alertmanager routing to a local cmd/sink webhook. Full chain verified live: stop app -> ApiDown pending -> firing at ~88s -> Alertmanager -> sink logs `status=firing`; restart -> `status=resolved` (send_resolved).
 
 ## Objective
 
