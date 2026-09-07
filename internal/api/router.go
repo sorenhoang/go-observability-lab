@@ -5,25 +5,44 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sorenhoang/go-observability-lab/internal/config"
+	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
 // startedAt is captured at process start so /health can report uptime.
 var startedAt = time.Now()
 
 type Handlers struct {
-	cfg      config.Config
-	metrics  *metrics.Metrics
-	chaos    *Chaos
-	orderSeq atomic.Int64
+	cfg     config.Config
+	metrics *metrics.Metrics
+	chaos   *Chaos
+	store   dataStore
+	cache   productCache
+	events  orderPublisher
+}
+
+type dataStore interface {
+	Users(context.Context) ([]store.User, error)
+	Products(context.Context) ([]store.Product, error)
+	ProductExists(context.Context, int) (bool, error)
+	CreateOrder(context.Context, int, int) (int64, error)
+}
+
+type productCache interface {
+	Products(context.Context, func(context.Context) ([]store.Product, error)) ([]store.Product, error)
+}
+
+type orderPublisher interface {
+	PublishOrder(context.Context, events.OrderEvent)
 }
 
 // NewRouter returns the HTTP handler for the service.
@@ -31,9 +50,9 @@ type Handlers struct {
 // It uses the standard library http.ServeMux with Go 1.22+ method/pattern
 // routing (e.g. "GET /health"). No third-party router: the point of the lab
 // is to keep the middleware seam visible, and ServeMux is enough.
-func NewRouter(cfg config.Config, m *metrics.Metrics) http.Handler {
+func NewRouter(cfg config.Config, m *metrics.Metrics, st dataStore, c productCache, publisher orderPublisher) http.Handler {
 	chaos := NewChaos(m)
-	h := &Handlers{cfg: cfg, metrics: m, chaos: chaos}
+	h := &Handlers{cfg: cfg, metrics: m, chaos: chaos, store: st, cache: c, events: publisher}
 	instrument := m.Instrument(routePattern)
 	// business: instrumented + subject to fault injection.
 	// plain: instrumented but never chaos-affected (health probes must stay honest).
@@ -50,8 +69,8 @@ func NewRouter(cfg config.Config, m *metrics.Metrics) http.Handler {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /health", plain(handleHealth))
-	mux.Handle("GET /users", business(handleUsers))
-	mux.Handle("GET /products", business(handleProducts))
+	mux.Handle("GET /users", business(h.handleUsers))
+	mux.Handle("GET /products", business(h.handleProducts))
 	mux.Handle("POST /orders", business(h.handleCreateOrder))
 	mux.Handle("GET /slow", business(h.handleSlow))
 	mux.Handle("GET /error", business(h.handleError))

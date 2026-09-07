@@ -17,8 +17,11 @@ import (
 	"time"
 
 	"github.com/sorenhoang/go-observability-lab/internal/api"
+	"github.com/sorenhoang/go-observability-lab/internal/cache"
 	"github.com/sorenhoang/go-observability-lab/internal/config"
+	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
 func main() {
@@ -31,9 +34,30 @@ func main() {
 		slog.Warn("API_ADMIN_TOKEN is unset; chaos control endpoints are open")
 	}
 
+	startupCtx, startupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer startupCancel()
+
+	st, err := store.Open(startupCtx, cfg.DatabaseURL, m)
+	if err != nil {
+		slog.Error("database unavailable", "err", err)
+		os.Exit(1)
+	}
+	defer st.Close()
+
+	productCache := cache.New(cfg.RedisAddr, m)
+	if err := productCache.Ping(startupCtx); err != nil {
+		slog.Warn("redis unavailable at startup; products cache disabled", "err", err)
+		_ = productCache.Close()
+		productCache = cache.Disabled(m)
+	}
+	defer productCache.Close()
+
+	producer := events.NewProducerIfAvailable(startupCtx, cfg.KafkaBrokers, m)
+	defer producer.Close()
+
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewRouter(cfg, m),
+		Handler: api.NewRouter(cfg, m, st, productCache, producer),
 		// ReadHeaderTimeout guards against slowloris; without it gosec (G112)
 		// flags the server and a single slow client can pin a connection.
 		ReadHeaderTimeout: 5 * time.Second,

@@ -35,7 +35,7 @@ func TestLoadClampsMinAboveMax(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Force-unset so the test is hermetic regardless of the caller's env.
-	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN"} {
+	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN", "API_DATABASE_URL", "API_REDIS_ADDR", "API_KAFKA_BROKERS"} {
 		t.Setenv(k, "")
 	}
 
@@ -52,6 +52,15 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if c.AdminToken != "" {
 		t.Fatalf("AdminToken = %q, want empty", c.AdminToken)
+	}
+	if c.DatabaseURL != "postgres://lab:lab@postgres:5432/lab?sslmode=disable" {
+		t.Fatalf("DatabaseURL = %q, want default Postgres URL", c.DatabaseURL)
+	}
+	if c.RedisAddr != "redis:6379" {
+		t.Fatalf("RedisAddr = %q, want redis:6379", c.RedisAddr)
+	}
+	if c.KafkaBrokers != "kafka:9092" {
+		t.Fatalf("KafkaBrokers = %q, want kafka:9092", c.KafkaBrokers)
 	}
 }
 
