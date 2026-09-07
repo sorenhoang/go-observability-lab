@@ -1,0 +1,29 @@
+groups:
+  - name: api_alerts
+    rules:
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API target is down"
+          description: "Prometheus cannot scrape {{ $labels.instance }} for over 1m."
+
+      - alert: HighErrorRate
+        expr: job:http_error_rate:ratio5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx error ratio above 5%"
+          description: "Error ratio is {{ $value | humanizePercentage }} (threshold 5%) for 5m."
+
+      - alert: HighLatencyP95
+        expr: job:http_request_duration_seconds:p95_5m > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency above 1s"
+          description: "P95 is {{ $value | humanizeDuration }} (threshold 1s) for 10m."

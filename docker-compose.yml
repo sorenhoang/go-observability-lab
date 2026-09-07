@@ -19,9 +19,24 @@ services:
       - "${PROMETHEUS_HOST_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
     depends_on:
       - app
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    ports:
+      - "${ALERTMANAGER_HOST_PORT:-9093}:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    depends_on:
+      - webhook-sink
+
+  webhook-sink:
+    build: .
+    entrypoint: ["/sink"]
 
   grafana:
     image: grafana/grafana:12.3.0
