@@ -1,3 +1,5 @@
+// Command sink is a minimal webhook receiver for Alertmanager (Phase 7):
+// it logs every alert it's sent, standing in for a real paging integration.
 package main
 
 import (

@@ -1,3 +1,6 @@
+// Package events publishes order events to Kafka. Publishing is
+// best-effort: a failure here never fails the request that already
+// committed the order to Postgres, the source of truth.
 package events
 
 import (
@@ -37,7 +40,7 @@ type Producer struct {
 }
 
 func NewProducer(brokers string, m *metrics.Metrics) *Producer {
-	addrs := splitBrokers(brokers)
+	addrs := SplitBrokers(brokers)
 	if len(addrs) == 0 {
 		return &Producer{metrics: m}
 	}
@@ -55,7 +58,7 @@ func newProducerWithWriter(w kafkaWriter, m *metrics.Metrics) *Producer {
 }
 
 func NewProducerIfAvailable(ctx context.Context, brokers string, m *metrics.Metrics) *Producer {
-	addrs := splitBrokers(brokers)
+	addrs := SplitBrokers(brokers)
 	if len(addrs) == 0 {
 		slog.Warn("API_KAFKA_BROKERS is empty; order publishing disabled")
 		return &Producer{metrics: m}
@@ -125,7 +128,10 @@ func (p *Producer) PublishOrder(ctx context.Context, event OrderEvent) {
 	}()
 }
 
-func splitBrokers(brokers string) []string {
+// SplitBrokers parses a comma-separated broker list, trimming whitespace and
+// dropping empty entries. Exported so cmd/consumer parses its own
+// CONSUMER_KAFKA_BROKERS the same way instead of a second copy of this.
+func SplitBrokers(brokers string) []string {
 	var out []string
 	for _, broker := range strings.Split(brokers, ",") {
 		broker = strings.TrimSpace(broker)

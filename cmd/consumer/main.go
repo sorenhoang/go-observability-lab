@@ -1,3 +1,7 @@
+// Command consumer reads order events off Kafka (topic "orders", group
+// "order-processors"), does token processing work, and exposes its own
+// /metrics + traces on :9002. Independent binary from cmd/api so the two
+// scale and fail separately.
 package main
 
 import (
@@ -7,8 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/segmentio/kafka-go"
+	"github.com/sorenhoang/go-observability-lab/internal/config"
 	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/obs"
 	"go.opentelemetry.io/otel/trace"
@@ -25,14 +28,14 @@ func main() {
 	logger := slog.New(obs.NewHandler(os.Stdout, slog.LevelInfo))
 	slog.SetDefault(logger)
 
-	brokers := splitBrokers(getenv("CONSUMER_KAFKA_BROKERS", "kafka:9092"))
-	delay := time.Duration(getenvInt("CONSUMER_DELAY_MS", 50)) * time.Millisecond
+	brokers := events.SplitBrokers(config.Getenv("CONSUMER_KAFKA_BROKERS", "kafka:9092"))
+	delay := time.Duration(config.GetenvInt("CONSUMER_DELAY_MS", 50)) * time.Millisecond
 
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startupCancel()
 	shutdownTracer, err := obs.InitTracer(startupCtx, "consumer",
-		getenv("CONSUMER_OTLP_ENDPOINT", ""),
-		getenvFloat("CONSUMER_TRACE_SAMPLE_RATIO", 1.0),
+		config.Getenv("CONSUMER_OTLP_ENDPOINT", ""),
+		config.GetenvFloat("CONSUMER_TRACE_SAMPLE_RATIO", 1.0),
 	)
 	if err != nil {
 		slog.Error("tracer init failed", "err", err)
@@ -131,31 +134,6 @@ func main() {
 	}
 }
 
-func getenv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func getenvInt(key string, fallback int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
-	}
-	return fallback
-}
-
-func getenvFloat(key string, fallback float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			return f
-		}
-	}
-	return fallback
-}
-
 // consumeSpanContext extracts the W3C trace context the producer attached to
 // the Kafka message. There's no HTTP request here for the OTel propagator to
 // read a header off, so this hand-rolls the same parse obs.TraceHTTP gets for
@@ -167,15 +145,4 @@ func consumeSpanContext(headers []kafka.Header) (trace.SpanContext, bool) {
 		}
 	}
 	return trace.SpanContext{}, false
-}
-
-func splitBrokers(brokers string) []string {
-	var out []string
-	for _, broker := range strings.Split(brokers, ",") {
-		broker = strings.TrimSpace(broker)
-		if broker != "" {
-			out = append(out, broker)
-		}
-	}
-	return out
 }

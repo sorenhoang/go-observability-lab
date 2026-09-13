@@ -1,3 +1,6 @@
+// Package metrics owns every Prometheus metric the API exposes: the
+// hand-written RED metrics (Phase 2), business counters, and — since
+// Phase 12 — exemplars linking a sampled observation to its trace.
 package metrics
 
 import (
