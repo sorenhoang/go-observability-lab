@@ -36,7 +36,7 @@ func TestLoadClampsMinAboveMax(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Force-unset so the test is hermetic regardless of the caller's env.
-	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN", "API_DATABASE_URL", "API_REDIS_ADDR", "API_KAFKA_BROKERS", "API_LOG_LEVEL"} {
+	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN", "API_DATABASE_URL", "API_REDIS_ADDR", "API_KAFKA_BROKERS", "API_LOG_LEVEL", "API_OTLP_ENDPOINT", "API_TRACE_SAMPLE_RATIO"} {
 		t.Setenv(k, "")
 	}
 
@@ -65,6 +65,24 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if c.LogLevel != "info" {
 		t.Fatalf("LogLevel = %q, want info", c.LogLevel)
+	}
+	if c.OTLPEndpoint != "" {
+		t.Fatalf("OTLPEndpoint = %q, want empty (tracing disabled by default)", c.OTLPEndpoint)
+	}
+	if c.TraceSampleRatio != 1.0 {
+		t.Fatalf("TraceSampleRatio = %v, want 1.0", c.TraceSampleRatio)
+	}
+}
+
+func TestLoadClampsTraceSampleRatio(t *testing.T) {
+	t.Setenv("API_TRACE_SAMPLE_RATIO", "5")
+	if c := Load(); c.TraceSampleRatio != 1 {
+		t.Fatalf("TraceSampleRatio = %v, want clamped to 1", c.TraceSampleRatio)
+	}
+
+	t.Setenv("API_TRACE_SAMPLE_RATIO", "-1")
+	if c := Load(); c.TraceSampleRatio != 0 {
+		t.Fatalf("TraceSampleRatio = %v, want clamped to 0", c.TraceSampleRatio)
 	}
 }
 

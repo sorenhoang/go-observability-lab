@@ -48,6 +48,7 @@ make down
 | Infra dashboard | http://localhost:3000/d/infra | P8 |
 | Loki           | http://localhost:3100         | P10 |
 | Alloy           | http://localhost:12345        | P10 |
+| Tempo          | http://localhost:3200         | P11 |
 
 ## Phase checklist
 
@@ -62,7 +63,7 @@ make down
 - [x] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
 - [x] **P9** Structured logging — canonical request line, `request_id` correlation, JSON everywhere
 - [x] **P10** Loki + Grafana Alloy — log shipping and querying from Grafana
-- [ ] **P11** Distributed tracing — spans, W3C propagation, Tempo
+- [x] **P11** Distributed tracing — spans, W3C propagation, Tempo
 - [ ] **P12** Correlation — exemplars, traces ↔ logs ↔ metrics pivot
 
 ## Docs
@@ -74,5 +75,6 @@ make down
 | [docs/00-intro.md](docs/00-intro.md) | Why observability; the three pillars |
 | [docs/09-structured-logging.md](docs/09-structured-logging.md) | Canonical log lines, `request_id` correlation |
 | [docs/10-loki.md](docs/10-loki.md) | Loki, Alloy, LogQL, metrics-from-logs, cardinality demo |
+| [docs/11-tracing.md](docs/11-tracing.md) | Spans, the goroutine-span trap, W3C propagation over Kafka, Tempo |
 | [docs/glossary.md](docs/glossary.md) | Counter, gauge, histogram, cardinality, scrape, … |
 | [docs/phases/](docs/phases/) | Detailed build guide per phase |

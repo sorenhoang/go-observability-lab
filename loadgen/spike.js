@@ -21,6 +21,12 @@ export const options = {
   },
 };
 
+// See script.js for why this is hand-rolled rather than k6/experimental/tracing.
+function traceparent() {
+  const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  return `00-${hex(32)}-${hex(16)}-01`;
+}
+
 export default function () {
-  http.get(`${BASE_URL}/users`);
+  http.get(`${BASE_URL}/users`, { headers: { traceparent: traceparent() } });
 }

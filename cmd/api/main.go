@@ -38,6 +38,17 @@ func main() {
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startupCancel()
 
+	shutdownTracer, err := obs.InitTracer(startupCtx, "app", cfg.OTLPEndpoint, cfg.TraceSampleRatio)
+	if err != nil {
+		slog.Error("tracer init failed", "err", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := shutdownTracer(context.Background()); err != nil {
+			slog.Warn("tracer shutdown failed", "err", err)
+		}
+	}()
+
 	st, err := store.Open(startupCtx, cfg.DatabaseURL, m)
 	if err != nil {
 		slog.Error("database unavailable", "err", err)
