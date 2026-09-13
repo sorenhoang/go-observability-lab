@@ -7,6 +7,9 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type User struct {
@@ -107,11 +110,20 @@ func (s *Store) CreateOrder(ctx context.Context, productID, qty int) (int64, err
 }
 
 func (s *Store) timed(ctx context.Context, name string, fn func(context.Context) error) error {
+	ctx, span := obs.Tracer().Start(ctx, "db."+name)
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("db.system", "postgresql"),
+		attribute.String("db.operation", name),
+	)
+
 	start := time.Now()
 	err := fn(ctx)
 	status := "ok"
 	if err != nil {
 		status = "error"
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 	}
 	s.metrics.ObserveDBQuery(name, status, time.Since(start))
 	return err

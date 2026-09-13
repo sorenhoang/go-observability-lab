@@ -15,12 +15,17 @@ services:
       API_DATABASE_URL: "${API_DATABASE_URL:-postgres://lab:lab@postgres:5432/lab?sslmode=disable}"
       API_REDIS_ADDR: "${API_REDIS_ADDR:-redis:6379}"
       API_KAFKA_BROKERS: "${API_KAFKA_BROKERS:-kafka:9092}"
+      API_LOG_LEVEL: "${API_LOG_LEVEL:-info}"
+      API_OTLP_ENDPOINT: "${API_OTLP_ENDPOINT:-tempo:4317}"
+      API_TRACE_SAMPLE_RATIO: "${API_TRACE_SAMPLE_RATIO:-1.0}"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
       kafka:
+        condition: service_started
+      tempo:
         condition: service_started
 
   postgres:
@@ -77,8 +82,11 @@ services:
     environment:
       CONSUMER_KAFKA_BROKERS: "${CONSUMER_KAFKA_BROKERS:-kafka:9092}"
       CONSUMER_DELAY_MS: "${CONSUMER_DELAY_MS:-50}"
+      CONSUMER_OTLP_ENDPOINT: "${CONSUMER_OTLP_ENDPOINT:-tempo:4317}"
+      CONSUMER_TRACE_SAMPLE_RATIO: "${CONSUMER_TRACE_SAMPLE_RATIO:-1.0}"
     depends_on:
       - kafka
+      - tempo
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.8.0
@@ -113,6 +121,15 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus_data:/prometheus
+    # The default image args, plus --web.enable-remote-write-receiver so
+    # Tempo's metrics_generator (span-metrics, service-graphs) can
+    # remote_write span-derived metrics in here.
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-remote-write-receiver"
     depends_on:
       - app
       - alertmanager
@@ -122,6 +139,7 @@ services:
       - consumer
       - node-exporter
       - cadvisor
+      - tempo
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
@@ -135,6 +153,16 @@ services:
   webhook-sink:
     build: .
     entrypoint: ["/sink"]
+
+  tempo:
+    image: grafana/tempo:2.10.8
+    ports:
+      - "${TEMPO_HOST_PORT:-3200}:3200"
+      - "${TEMPO_OTLP_HOST_PORT:-4317}:4317"
+    volumes:
+      - ./tempo/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - tempo_data:/var/tempo
+    command: ["-config.file=/etc/tempo/tempo-config.yml"]
 
   loki:
     image: grafana/loki:3.7.7
@@ -174,6 +202,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
 
   k6:
     image: grafana/k6:2.2.0
@@ -194,3 +223,4 @@ volumes:
   prometheus_data:
   postgres_data:
   loki_data:
+  tempo_data:

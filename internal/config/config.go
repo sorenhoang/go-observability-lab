@@ -46,6 +46,14 @@ type Config struct {
 	// LogLevel controls the minimum severity emitted by the structured JSON
 	// logger: "debug", "info" (default), "warn", or "error".
 	LogLevel string
+
+	// OTLPEndpoint is the OTLP/gRPC collector address for traces, e.g.
+	// "tempo:4317". Empty disables tracing entirely (spans still create,
+	// never export) — the same optional-dependency pattern as Redis/Kafka.
+	OTLPEndpoint string
+
+	// TraceSampleRatio is the fraction of traces sampled, clamped to [0,1].
+	TraceSampleRatio float64
 }
 
 // SlogLevel maps LogLevel to a slog.Level, defaulting to Info for an unknown
@@ -69,22 +77,25 @@ func (c Config) SlogLevel() slog.Level {
 // put the API into a nonsensical state.
 func Load() Config {
 	c := Config{
-		Addr:            getenv("API_ADDR", ":8080"),
-		ShutdownTimeout: getenvDuration("API_SHUTDOWN_TIMEOUT", 10*time.Second),
-		SlowMinMs:       getenvInt("API_SLOW_MIN_MS", 50),
-		SlowMaxMs:       getenvInt("API_SLOW_MAX_MS", 2000),
-		ErrorRate:       getenvFloat("API_ERROR_RATE", 0.3),
-		AdminToken:      getenv("API_ADMIN_TOKEN", ""),
-		DatabaseURL:     getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
-		RedisAddr:       getenv("API_REDIS_ADDR", "redis:6379"),
-		KafkaBrokers:    getenv("API_KAFKA_BROKERS", "kafka:9092"),
-		LogLevel:        getenv("API_LOG_LEVEL", "info"),
+		Addr:             getenv("API_ADDR", ":8080"),
+		ShutdownTimeout:  getenvDuration("API_SHUTDOWN_TIMEOUT", 10*time.Second),
+		SlowMinMs:        getenvInt("API_SLOW_MIN_MS", 50),
+		SlowMaxMs:        getenvInt("API_SLOW_MAX_MS", 2000),
+		ErrorRate:        getenvFloat("API_ERROR_RATE", 0.3),
+		AdminToken:       getenv("API_ADMIN_TOKEN", ""),
+		DatabaseURL:      getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
+		RedisAddr:        getenv("API_REDIS_ADDR", "redis:6379"),
+		KafkaBrokers:     getenv("API_KAFKA_BROKERS", "kafka:9092"),
+		LogLevel:         getenv("API_LOG_LEVEL", "info"),
+		OTLPEndpoint:     getenv("API_OTLP_ENDPOINT", ""),
+		TraceSampleRatio: getenvFloat("API_TRACE_SAMPLE_RATIO", 1.0),
 	}
 
 	c.ErrorRate = min(max(c.ErrorRate, 0), 1)
 	c.SlowMinMs = max(c.SlowMinMs, 0)
 	c.SlowMaxMs = max(c.SlowMaxMs, 0)
 	c.SlowMinMs = min(c.SlowMinMs, c.SlowMaxMs)
+	c.TraceSampleRatio = min(max(c.TraceSampleRatio, 0), 1)
 
 	return c
 }

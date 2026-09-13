@@ -9,6 +9,7 @@ import (
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
 	"github.com/sorenhoang/go-observability-lab/internal/obs"
 	"github.com/sorenhoang/go-observability-lab/internal/store"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const productsKey = "products"
@@ -55,7 +56,11 @@ func (c *Cache) Flush(ctx context.Context) error {
 }
 
 func (c *Cache) Products(ctx context.Context, load func(context.Context) ([]store.Product, error)) ([]store.Product, error) {
+	ctx, span := obs.Tracer().Start(ctx, "cache.get products")
+	defer span.End()
+
 	if !c.enabled {
+		span.SetAttributes(attribute.Bool("cache.hit", false))
 		c.metrics.CacheResult("miss")
 		return load(ctx)
 	}
@@ -64,6 +69,7 @@ func (c *Cache) Products(ctx context.Context, load func(context.Context) ([]stor
 	if err == nil {
 		var products []store.Product
 		if err := json.Unmarshal(b, &products); err == nil {
+			span.SetAttributes(attribute.Bool("cache.hit", true))
 			c.metrics.CacheResult("hit")
 			return products, nil
 		}
@@ -74,6 +80,7 @@ func (c *Cache) Products(ctx context.Context, load func(context.Context) ([]stor
 		obs.LoggerFrom(ctx).Warn("products cache unavailable; falling through", "err", err)
 	}
 
+	span.SetAttributes(attribute.Bool("cache.hit", false))
 	c.metrics.CacheResult("miss")
 	products, err := load(ctx)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/obs"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {
@@ -26,6 +27,22 @@ func main() {
 
 	brokers := splitBrokers(getenv("CONSUMER_KAFKA_BROKERS", "kafka:9092"))
 	delay := time.Duration(getenvInt("CONSUMER_DELAY_MS", 50)) * time.Millisecond
+
+	startupCtx, startupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer startupCancel()
+	shutdownTracer, err := obs.InitTracer(startupCtx, "consumer",
+		getenv("CONSUMER_OTLP_ENDPOINT", ""),
+		getenvFloat("CONSUMER_TRACE_SAMPLE_RATIO", 1.0),
+	)
+	if err != nil {
+		slog.Error("tracer init failed", "err", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := shutdownTracer(context.Background()); err != nil {
+			slog.Warn("tracer shutdown failed", "err", err)
+		}
+	}()
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector())
@@ -79,11 +96,18 @@ func main() {
 				consumerErr <- err
 				return
 			}
+			msgCtx := context.Background()
+			if sc, ok := consumeSpanContext(msg.Headers); ok {
+				msgCtx = trace.ContextWithRemoteSpanContext(msgCtx, sc)
+			}
+			_, span := obs.Tracer().Start(msgCtx, "consume orders", trace.WithSpanKind(trace.SpanKindConsumer))
+
 			start := time.Now()
 			time.Sleep(delay)
 			processing.Observe(time.Since(start).Seconds())
 			consumed.Inc()
 			slog.Info("processed order event", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
+			span.End()
 		}
 	}()
 
@@ -121,6 +145,28 @@ func getenvInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func getenvFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return fallback
+}
+
+// consumeSpanContext extracts the W3C trace context the producer attached to
+// the Kafka message. There's no HTTP request here for the OTel propagator to
+// read a header off, so this hand-rolls the same parse obs.TraceHTTP gets for
+// free from the propagator on the HTTP side.
+func consumeSpanContext(headers []kafka.Header) (trace.SpanContext, bool) {
+	for _, h := range headers {
+		if h.Key == "traceparent" {
+			return obs.ParseTraceparent(string(h.Value))
+		}
+	}
+	return trace.SpanContext{}, false
 }
 
 func splitBrokers(brokers string) []string {

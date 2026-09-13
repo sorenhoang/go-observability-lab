@@ -304,6 +304,48 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 
 ---
 
+## Phase 11 — Distributed tracing
+
+1. **Objective** — Wire a real end-to-end trace: root span in the router,
+   child spans in the DB/cache/producer, `traceparent` carried across the
+   Kafka boundary by hand, reconstructed in a separate consumer process.
+2. **Concepts** — The **goroutine-span-lifetime trap** (a span started
+   inside a detached `go func()` has no guaranteed live parent — start it
+   synchronously before the goroutine, end it inside once the async work
+   finishes); **W3C `traceparent` over a non-HTTP transport** (Kafka headers,
+   hand-rolled since the OTel propagator only knows HTTP); **`ParentBased`
+   sampling** (honor the root's sampling decision at every hop, never
+   re-roll); **OTLP as a swappable wire format** (same property Prometheus's
+   exposition format and Loki's push API have).
+3. **Components** — `tempo` container (single-binary, OTLP receiver,
+   metrics-generator remote-writing into Prometheus), root span via
+   `obs.TraceHTTP`, child spans in `internal/store`/`internal/cache`,
+   producer/consumer span pair across `internal/events`/`cmd/consumer`.
+4. **Metrics** — none new for the app; Tempo's metrics-generator derives
+   span-metrics + a service graph into Prometheus from trace data alone.
+5. **PromQL/LogQL** — n/a (traces instead): unit-tested end-to-end via a
+   `kafka.publish orders` span asserted as a child of the request root, its
+   injected `traceparent` header round-tripping through `ParseTraceparent`.
+6. **Dashboards** — Tempo Search in Grafana Explore; service graph from
+   `serviceMap.datasourceUid: prometheus`.
+7. **Repo changes** — `tempo/tempo-config.yml`, `docker-compose.yml`
+   (`tempo`, OTLP env on `app`/`consumer`, Prometheus remote-write flag),
+   `grafana/provisioning/datasources/tempo.yml`, `internal/obs/tracing.go` +
+   `propagation.go` + the real `TraceHTTP` (Task 4), spans in
+   `internal/store`, `internal/cache`, `internal/events/producer.go`,
+   `cmd/consumer/main.go`, `loadgen/*.js` (traceparent origination),
+   `docs/11-tracing.md`.
+8. **Definition of Done**
+   - `go test ./...` green, including the producer→header→consumer chain
+   - `make check-config` includes Tempo, verified live (`-config.verify=true`)
+   - `/health`, `/metrics` produce no spans
+   - `API_OTLP_ENDPOINT=` (empty) → app/consumer still run, no export
+   - `docs/11-tracing.md` covers the goroutine-span trap, sampling, the
+     Jaeger swap, and why Tempo is pinned to `2.10.8` not `3.x`
+   - Tagged `phase-11`
+
+---
+
 ## The traps this lab teaches on purpose
 
 | Trap | Where it bites | Fix taught |
@@ -317,6 +359,8 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 | Counters reset on restart | P3 | `rate`/`increase` handle resets; manual diffing doesn't |
 | Rate window < ~4× scrape interval | P3, P4 | Gaps / NaN; standardize on `[5m]` |
 | High-cardinality labels: `user_id`, `order_id`, `email`, `session_id`, raw path, timestamp, IP, unbounded error string | P2 | Label value sets must be small and bounded |
+| Promoting a per-request field (`request_id`) to a Loki stream label | P10 | Stream count scales with traffic instead of staying flat; keep labels to `service`/`container`/`level` |
+| Starting a span inside a detached `go func()` | P11 | No guaranteed live parent by the time it runs; start synchronously, end inside the goroutine |
 
 ## Metrics naming conventions
 

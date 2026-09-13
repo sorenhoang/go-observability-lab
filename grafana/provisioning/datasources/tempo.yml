@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      # Lets a trace's service-graph / node-graph panel resolve span-metrics
+      # (recorded by Tempo's metrics_generator into Prometheus) back to a
+      # trace. Task 6 adds tracesToLogs/tracesToMetrics on top of this.
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
