@@ -14,7 +14,7 @@ dashboards, and alerting. Effort is intentionally weighted **~20% application co
   You should be able to explain what every metric does and what problem it
   diagnoses.
 - **One concept cluster per phase.** Each phase is small, independently runnable,
-  and tagged in git (`phase-0` … `phase-8`).
+  and tagged in git (`phase-0` … `phase-12`).
 - **Docker Compose only.** No Kubernetes.
 
 ## How to run
@@ -46,6 +46,8 @@ make down
 | Grafana      | http://localhost:3000   | P5      |
 | Alertmanager | http://localhost:9093   | P7      |
 | Infra dashboard | http://localhost:3000/d/infra | P8 |
+| Loki           | http://localhost:3100         | P10 |
+| Alloy           | http://localhost:12345        | P10 |
 
 ## Phase checklist
 
@@ -58,6 +60,10 @@ make down
 - [x] **P6** Failure simulation — fault injection + runtime metrics + failure playbook
 - [x] **P7** Recording rules + alerting — Alertmanager + webhook sink, alerts fire
 - [x] **P8** Infrastructure observability — exporters (Postgres / Redis / Kafka / host)
+- [x] **P9** Structured logging — canonical request line, `request_id` correlation, JSON everywhere
+- [x] **P10** Loki + Grafana Alloy — log shipping and querying from Grafana
+- [ ] **P11** Distributed tracing — spans, W3C propagation, Tempo
+- [ ] **P12** Correlation — exemplars, traces ↔ logs ↔ metrics pivot
 
 ## Docs
 
@@ -65,6 +71,8 @@ make down
 |-----|------|
 | [docs/roadmap.md](docs/roadmap.md) | Full phased roadmap |
 | [docs/config.md](docs/config.md) | Env vars, `.env` files, per-environment profiles |
-| [docs/00-intro.md](docs/00-intro.md) | Why observability; why this lab is metrics-only |
+| [docs/00-intro.md](docs/00-intro.md) | Why observability; the three pillars |
+| [docs/09-structured-logging.md](docs/09-structured-logging.md) | Canonical log lines, `request_id` correlation |
+| [docs/10-loki.md](docs/10-loki.md) | Loki, Alloy, LogQL, metrics-from-logs, cardinality demo |
 | [docs/glossary.md](docs/glossary.md) | Counter, gauge, histogram, cardinality, scrape, … |
 | [docs/phases/](docs/phases/) | Detailed build guide per phase |

@@ -239,6 +239,71 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 
 ---
 
+## Phase 9 — Structured logging
+
+1. **Objective** — Add the logs pillar in pure application code, no new infra.
+2. **Concepts** — The **canonical log line** (one wide JSON record per
+   request); a **context-carried correlation ID** (`request_id`); a decorating
+   `slog.Handler` that injects `trace_id`/`span_id` once Phase 11 exists;
+   redaction by construction (the request logger never reads the body,
+   headers, or query string) instead of a scrubber regex.
+3. **Components** — `internal/obs` (context helpers, JSON handler,
+   `PanicGuard`/`RequestLogger`/`TraceHTTP`-stub middleware), wired into
+   `cmd/api`, `cmd/consumer`, `cmd/sink`, and the router's middleware chain.
+4. **Metrics** — none new; RED metrics (Phase 2) are untouched.
+5. **PromQL** — none.
+6. **Dashboards** — none (Phase 12 adds a logs panel).
+7. **Repo changes** — `internal/obs/**`, `internal/api/router.go` (new
+   middleware order), `internal/api/chaos.go` + `handlers.go` (WARN on
+   injected/simulated failure), `internal/cache`, `internal/events`
+   (context-scoped logging), `internal/config` (`API_LOG_LEVEL`),
+   `docs/09-structured-logging.md`.
+8. **Definition of Done**
+   - Every business/health/admin request emits exactly one `msg="request"`
+     JSON line; `/metrics` emits none
+   - A chaos-injected 500 logs a `WARN` sharing that request's `request_id`
+   - `API_LOG_LEVEL=warn` suppresses INFO request lines
+   - `go test ./...`, `go vet ./...`, `gofmt -l .` all clean
+   - Tagged `phase-9`
+
+---
+
+## Phase 10 — Loki + Grafana Alloy
+
+1. **Objective** — Ship Phase 9's JSON stdout logs somewhere queryable.
+2. **Concepts** — **Push vs pull** (Alloy tails container stdout and pushes,
+   the mirror of Prometheus's pull scrape); **Loki's label model** (a stream
+   = a label set, same cardinality rule as a Prometheus series — stream
+   labels stay `service`/`container`/`level`, everything else is queried
+   from the JSON body with `| json`); **LogQL** as PromQL's sibling
+   (`rate({...} | json | ...)` turns a log stream into a metric); retention
+   needing both `retention_period` and `compactor.retention_enabled`.
+3. **Components** — `loki` + `alloy` containers, `loki/loki-config.yml`,
+   `alloy/config.alloy` (discovery → relabel → source.docker → process →
+   write pipeline), a Loki Grafana datasource, a 3-panel "Logs" dashboard.
+4. **Metrics** — none new for the app; Loki exposes its own
+   `loki_ingester_memory_streams` (used for the cardinality demo).
+5. **PromQL** — n/a (LogQL instead): `{service="app"} | json | level="ERROR"`,
+   `sum by (route) (rate({service="app"} | json | __error__="" [$__rate_interval]))`.
+6. **Dashboards** — "Logs": 5xx-log-rate stat, request-rate-by-route
+   timeseries derived from logs, an ERROR-level logs panel.
+7. **Repo changes** — `loki/**`, `alloy/**`, `docker-compose.yml` (`loki`,
+   `alloy`, `loki_data` volume), `grafana/provisioning/datasources/loki.yml`,
+   `grafana/dashboards/logs.json`, `Makefile` (`check-config` extended,
+   `logs` target), `docs/10-loki.md`.
+8. **Definition of Done**
+   - `make check-config` passes with Loki's config verified
+   - Fresh `make up` → Alloy's `loki.source.docker` component green; logs
+     queryable in Loki within ~15s of `make load`
+   - `/loki/api/v1/labels` shows only `service`, `container`, `level`
+     (+ Loki internals) — no `request_id`
+   - "Logs" dashboard populated; the cardinality demo's real before/after
+     `loki_ingester_memory_streams` numbers recorded
+   - `make test` still green (no Go code touched)
+   - Tagged `phase-10`
+
+---
+
 ## The traps this lab teaches on purpose
 
 | Trap | Where it bites | Fix taught |
@@ -271,7 +336,8 @@ Gets its own `/sr:plan` before implementation. Sketch only:
   long-term storage, global query, and dedup; plus remote-write to a managed backend.
 - TLS + auth + network policy on `/metrics` and every UI (the lab leaves them open).
 - Real on-call: PagerDuty, escalation policies, silences, runbooks — not a webhook sink.
-- Metrics correlated with traces (Tempo / Jaeger) and logs (Loki). This lab is
-  metrics-only by design.
+- Metrics correlated with traces (Tempo / Jaeger) and logs (Loki) — this lab
+  builds that correlation too (Phases 9–12), just later and smaller-scale than
+  a production deployment's log/trace retention and sampling budgets.
 - Cardinality governance: series-count limits and alerts; one bad label can OOM
   Prometheus.

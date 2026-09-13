@@ -1,0 +1,62 @@
+// Alloy reads every container's stdout via the Docker API and ships it to
+// Loki. The app never knows this exists — same "the app just serves an
+// endpoint, someone else pulls/collects it" shape as the Prometheus pull
+// model in Phase 3.
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+// Keep only two labels off container metadata: the compose service name and
+// the container name. Everything else about a request (route, request_id,
+// trace_id) stays inside the JSON log line, queried at read time with
+// `| json` — see loki.process below. Stream labels are how Loki indexes and
+// shards data, so they must stay a small, bounded set.
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.*)"
+		target_label  = "container"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "containers" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.containers.output
+	labels     = {}
+	forward_to = [loki.process.containers.receiver]
+}
+
+// Extract `level` from the app's JSON log line and promote it to a stream
+// label; drop everything else that stage.json could have extracted. This is
+// the one place cardinality is decided — see docs/10-loki.md for the demo of
+// what happens if request_id is promoted here by mistake.
+loki.process "containers" {
+	stage.json {
+		expressions = {level = "level"}
+	}
+
+	stage.labels {
+		values = {
+			level = "",
+		}
+	}
+
+	stage.label_keep {
+		values = ["service", "container", "level"]
+	}
+
+	forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

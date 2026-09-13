@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check check-config up down load spike dash dash-infra
+.PHONY: run build test tidy vet fmt check check-config up down load spike dash dash-infra logs
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -33,9 +33,10 @@ fmt: ## Format all Go source
 
 check: fmt vet test ## Format, vet, and test in one shot
 
-check-config: ## Validate Prometheus rules and Alertmanager config
+check-config: ## Validate Prometheus rules, Alertmanager, and Loki config
 	docker run --rm --entrypoint promtool -v $(PWD)/prometheus:/p prom/prometheus:v3.7.3 check rules /p/rules/recording.yml /p/rules/alerts.yml
 	docker run --rm --entrypoint amtool -v $(PWD)/alertmanager:/a prom/alertmanager:v0.28.1 check-config /a/alertmanager.yml
+	docker run --rm -v $(PWD)/loki:/etc/loki grafana/loki:3.7.7 -config.file=/etc/loki/loki-config.yml -verify-config
 
 up: ## Start app + prometheus + alertmanager + grafana
 	docker compose up --build -d
@@ -54,3 +55,6 @@ dash: ## Open the Grafana RED dashboard
 
 dash-infra: ## Open the Grafana infrastructure dashboard
 	open http://localhost:3000/d/infra
+
+logs: ## Open Grafana Explore against Loki
+	open "http://localhost:3000/explore?left=%7B%22datasource%22:%22loki%22%7D"
