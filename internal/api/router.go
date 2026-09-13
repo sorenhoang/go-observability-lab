@@ -90,7 +90,9 @@ func NewRouter(cfg config.Config, m *metrics.Metrics, logger *slog.Logger, st da
 	mux.Handle("POST /leak/reset", control(h.handleLeakReset))
 	mux.Handle("GET /admin/chaos", control(h.handleGetChaos))
 	mux.Handle("POST /admin/chaos", control(h.handleSetChaos))
-	mux.Handle("GET /metrics", promhttp.HandlerFor(m.Registry(), promhttp.HandlerOpts{}))
+	// EnableOpenMetrics: exemplars only ride the scrape in OpenMetrics format
+	// (the plain Prometheus text format has no place to carry them).
+	mux.Handle("GET /metrics", promhttp.HandlerFor(m.Registry(), promhttp.HandlerOpts{EnableOpenMetrics: true}))
 	return mux
 }
 

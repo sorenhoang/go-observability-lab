@@ -18,11 +18,15 @@ these *from the outside*, without shipping new code to add a `printf`.
 
 ## The three pillars
 
-| Pillar | What it is | Answers |
-|--------|------------|---------|
-| **Metrics** | Numeric time series, cheap to store, aggregatable | "How much / how many / how fast" — trends, rates, percentiles, alerts |
-| **Logs** | Timestamped events, often with structure | "What exactly happened at 14:32:07 for request X" |
-| **Traces** | The path of one request across services, with timing per hop | "Where did those 800 ms go — which service, which call" |
+| Pillar | What it is | Answers | Where in this lab |
+|--------|------------|---------|---|
+| **Metrics** | Numeric time series, cheap to store, aggregatable | "How much / how many / how fast" — trends, rates, percentiles, alerts | Prometheus + Grafana (P2-P8) |
+| **Logs** | Timestamped events, often with structure | "What exactly happened at 14:32:07 for request X" | Loki + Grafana Alloy (P9-P10) |
+| **Traces** | The path of one request across services, with timing per hop | "Where did those 800 ms go — which service, which call" | Tempo + OpenTelemetry (P11) |
+
+Phase 12 ties all three together: an exemplar on a metric panel jumps to the
+trace; a log line's `trace_id` jumps to the same trace; a span jumps to its
+own log lines. `docs/12-correlation.md` has the walkthrough.
 
 They are complementary. Metrics tell you *something is wrong and roughly where*;
 traces and logs tell you *exactly what*.

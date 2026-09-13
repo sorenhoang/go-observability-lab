@@ -125,6 +125,6 @@ func (s *Store) timed(ctx context.Context, name string, fn func(context.Context)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 	}
-	s.metrics.ObserveDBQuery(name, status, time.Since(start))
+	s.metrics.ObserveDBQuery(ctx, name, status, time.Since(start))
 	return err
 }

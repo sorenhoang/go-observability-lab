@@ -9,8 +9,38 @@ datasources:
     jsonData:
       # Lets a trace's service-graph / node-graph panel resolve span-metrics
       # (recorded by Tempo's metrics_generator into Prometheus) back to a
-      # trace. Task 6 adds tracesToLogs/tracesToMetrics on top of this.
+      # trace.
       serviceMap:
         datasourceUid: prometheus
       nodeGraph:
         enabled: true
+      # Trace -> Logs: "Logs for this span" filters Loki to exactly this
+      # trace_id. tags maps the span's service.name (OTel) to Loki's
+      # "service" stream label (Phase 10/Alloy) — the identifier-consistency
+      # point docs/12-correlation.md pins down.
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        filterByTraceID: true
+        filterBySpanID: false
+        tags:
+          - key: service.name
+            value: service
+      # Trace -> Metrics: jump from a span to Tempo's own span-metrics for
+      # that service — compared against the hand-written RED metrics in
+      # grafana/dashboards/correlation.json.
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: "Request rate (span metrics)"
+            # span_kind restricts this to root HTTP spans — traces_spanmetrics_*
+            # covers every span (DB queries, cache lookups, the Kafka publish
+            # too), and mixing those into "request rate" over- and undercounts
+            # depending which span you clicked from.
+            query: "sum(rate(traces_spanmetrics_calls_total{$$__tags,span_kind=\"SPAN_KIND_SERVER\"}[5m]))"

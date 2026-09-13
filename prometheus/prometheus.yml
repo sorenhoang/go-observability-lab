@@ -1,6 +1,13 @@
 global:
   scrape_interval: 5s
 
+# Requires --enable-feature=exemplar-storage (docker-compose.yml). Exemplars
+# live in a small in-memory ring buffer, separate from the TSDB itself — this
+# just bounds how many are kept per metric before the oldest are dropped.
+storage:
+  exemplars:
+    max_exemplars: 100000
+
 rule_files:
   - /etc/prometheus/rules/*.yml
 
@@ -57,3 +64,8 @@ scrape_configs:
       - source_labels: [container_label_com_docker_compose_service]
         regex: "^$"
         action: drop
+
+  - job_name: tempo
+    static_configs:
+      - targets:
+          - tempo:3200

@@ -346,6 +346,50 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 
 ---
 
+## Phase 12 — Correlation
+
+1. **Objective** — Tie the three pillars together in Grafana: a metric's
+   exemplar jumps to its trace, a log line's `trace_id` jumps to its trace, a
+   span jumps to its own logs. Proven with a scripted incident, not just
+   config.
+2. **Concepts** — **Exemplars** (a metric observation can carry a
+   per-observation `trace_id`, but only for sampled spans and only over
+   OpenMetrics); **derived fields** (Loki) and **`tracesToLogsV2`/
+   `tracesToMetrics`** (Tempo) as the Grafana-side wiring; **identifier
+   consistency** across `job`/`service.name`/`service` labels; **span-metrics**
+   as a second, independently-computed RED to sanity-check the hand-written
+   one against.
+3. **Components** — `internal/metrics/exemplar.go` (`exemplarFor`, the one
+   sampled-check every histogram observe goes through), `EnableOpenMetrics`
+   on both `/metrics` endpoints, Prometheus's `exemplar-storage` feature flag
+   + a `tempo` scrape job, three cross-linked Grafana datasources, a
+   `correlation.json` dashboard, `scripts/incident.sh`.
+4. **Metrics** — none new; `traces_spanmetrics_calls_total` /
+   `traces_spanmetrics_latency_bucket` (from Tempo, not hand-written) show up
+   in Prometheus for the first time.
+5. **PromQL** — `histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{job="app"}[5m])))`
+   compared against the Phase 2 equivalent on the hand-written metric.
+6. **Dashboards** — `red.json`'s P95 target gains `exemplar: true`;
+   `correlation.json` (new) puts hand-written vs. span-derived RED side by
+   side.
+7. **Repo changes** — `internal/metrics/exemplar.go` (+ `exemplar_test.go`),
+   `middleware.go`/`metrics.go` (exemplar branch, `ObserveDBQuery` gains
+   `ctx`), `internal/store/store.go` (pass `ctx`), `internal/api/router.go` +
+   `cmd/consumer/main.go` (`EnableOpenMetrics`), `prometheus/prometheus.yml`
+   + `docker-compose.yml` (exemplar storage flag, `tempo` scrape job), all
+   three Grafana datasource files, `grafana/dashboards/{red,correlation}.json`,
+   `scripts/incident.sh`, `docs/12-correlation.md`.
+8. **Definition of Done**
+   - `go test ./...` green, including a real exemplar comment asserted in
+     OpenMetrics output for a sampled request
+   - All three Grafana pivots work with no manual per-panel tag edits
+   - `make incident` reaches the injected-failure span and its log line,
+     same `trace_id`, following `docs/12-correlation.md`
+   - `make check-config` green; `make test` green with no infra running
+   - Tagged `phase-12`
+
+---
+
 ## The traps this lab teaches on purpose
 
 | Trap | Where it bites | Fix taught |
@@ -361,6 +405,9 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 | High-cardinality labels: `user_id`, `order_id`, `email`, `session_id`, raw path, timestamp, IP, unbounded error string | P2 | Label value sets must be small and bounded |
 | Promoting a per-request field (`request_id`) to a Loki stream label | P10 | Stream count scales with traffic instead of staying flat; keep labels to `service`/`container`/`level` |
 | Starting a span inside a detached `go func()` | P11 | No guaranteed live parent by the time it runs; start synchronously, end inside the goroutine |
+| Same service, different `job`/`service.name` label per pillar | P12 | Cross-pillar correlation depends on this; pin an identifier table, don't discover the mismatch mid-incident |
+| Exemplar attached to an unsampled span | P12 | A `trace_id` link to a trace that was never recorded; check `IsSampled()` before attaching |
+| Comparing `traces_spanmetrics_*` to a request-rate metric without filtering `span_kind` | P12 | Every span (DB query, cache lookup, Kafka publish) counts too; filter to `SPAN_KIND_SERVER` |
 
 ## Metrics naming conventions
 
@@ -374,14 +421,37 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 
 ## What differs in a real production system
 
-- Service discovery (Kubernetes, Consul) instead of static targets; Pushgateway
-  for short-lived jobs.
-- Prometheus is not clustered — prod runs Thanos / Cortex / Mimir for HA,
-  long-term storage, global query, and dedup; plus remote-write to a managed backend.
-- TLS + auth + network policy on `/metrics` and every UI (the lab leaves them open).
-- Real on-call: PagerDuty, escalation policies, silences, runbooks — not a webhook sink.
-- Metrics correlated with traces (Tempo / Jaeger) and logs (Loki) — this lab
-  builds that correlation too (Phases 9–12), just later and smaller-scale than
-  a production deployment's log/trace retention and sampling budgets.
-- Cardinality governance: series-count limits and alerts; one bad label can OOM
-  Prometheus.
+The lab now covers all three pillars, correlated — here's what changes at
+production scale rather than what's missing entirely:
+
+- **Service discovery** — Kubernetes/Consul instead of static targets;
+  Pushgateway for short-lived jobs. This lab's static `docker-compose.yml`
+  targets are the training-wheels version of the same `job`/`service.name`
+  labels that make correlation work.
+- **Scale and retention** — Prometheus isn't clustered here (prod runs
+  Thanos/Cortex/Mimir for HA, long-term storage, global query, dedup); Loki
+  and Tempo run single-binary with local disk (prod runs them distributed
+  against object storage, with retention measured in weeks, not this lab's
+  72h/24h). Same shapes, same correlation config — just one binary instead
+  of a fleet, and a much shorter memory.
+- **Sampling at scale** — this lab samples 100% of traces
+  (`API_TRACE_SAMPLE_RATIO=1.0`) because traffic is tiny. Real traffic makes
+  100% sampling prohibitively expensive; production systems sample 1-10% and
+  lean harder on span-metrics (which aggregate before sampling drops
+  anything) for the RED numbers, keeping full traces for the sampled subset.
+- **Security** — TLS + auth + network policy on `/metrics` and every UI (the
+  lab leaves them all open on purpose, to keep the pull model and the
+  Grafana Explore pivots frictionless to poke at).
+- **Real on-call** — PagerDuty, escalation policies, silences, runbooks —
+  not a webhook sink (Phase 7).
+- **Cardinality governance** — series-count limits and alerts on all three
+  backends, not just the by-hand discipline this lab teaches
+  (routes/labels in Phase 2, Loki streams in Phase 10). One bad label or
+  span attribute can still take down a production Prometheus, Loki, or Tempo
+  the same way it would here — the failure mode doesn't change with scale,
+  only the blast radius.
+- **The identifier-consistency table stays a live document** — Phase 12's
+  `job`/`service.name`/`service` reconciliation (`docs/12-correlation.md`)
+  is a one-time exercise for a 2-service lab. In a real system with dozens of
+  services owned by different teams, that table (or the automation that
+  enforces it) is an ongoing operational concern, not a one-off fix.

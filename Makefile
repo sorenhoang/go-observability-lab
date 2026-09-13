@@ -1,4 +1,4 @@
-.PHONY: run build test tidy vet fmt check check-config up down load spike dash dash-infra logs traces
+.PHONY: run build test tidy vet fmt check check-config up down load spike dash dash-infra logs traces incident
 
 # --- Phase 0-3 targets -----------------------------------------------------
 
@@ -62,3 +62,6 @@ logs: ## Open Grafana Explore against Loki
 
 traces: ## Open Grafana Explore against Tempo
 	open "http://localhost:3000/explore?left=%7B%22datasource%22:%22tempo%22%7D"
+
+incident: ## Simulate a latency incident and print the correlation walkthrough
+	./scripts/incident.sh

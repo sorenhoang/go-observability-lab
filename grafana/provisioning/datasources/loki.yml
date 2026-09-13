@@ -7,6 +7,13 @@ datasources:
     access: proxy
     url: http://loki:3100
     jsonData:
-      # Task 6 (Phase 12) fills this in: a regex over the log line that turns
-      # a trace_id field into a clickable link to the Tempo datasource.
-      derivedFields: []
+      # Turns the trace_id field already present in every canonical request
+      # line (Phase 9's obs.NewHandler injects it from context) into a
+      # clickable link to the matching trace in Tempo. When the target
+      # datasource is a tracing backend, Grafana treats the captured group
+      # as the trace ID directly — no real URL template needed.
+      derivedFields:
+        - name: TraceID
+          matcherRegex: "\"trace_id\":\"(\\w+)\""
+          url: "${__value.raw}"
+          datasourceUid: tempo

@@ -3,8 +3,10 @@ package metrics
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
@@ -92,6 +94,33 @@ func TestInstrumentUsesRouteFuncTemplateLabel(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(m.requestsTotal.WithLabelValues("POST", "/orders?x=1", "201")); got != 0 {
 		t.Fatalf("raw route series = %v, want 0", got)
+	}
+}
+
+// RED PHASE (Task 6). Fails until Instrument attaches an exemplar for a
+// sampled span, served in OpenMetrics format (the only format that carries
+// exemplars).
+func TestDurationHistogramCarriesExemplarForSampledRequest(t *testing.T) {
+	m := New()
+
+	ctx, traceID := sampledCtx(t)
+	req := httptest.NewRequest(http.MethodGet, "/orders", nil).WithContext(ctx)
+	rec := httptest.NewRecorder()
+
+	m.Instrument(func(*http.Request) string {
+		return "/orders"
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})).ServeHTTP(rec, req)
+
+	metricsReq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	metricsReq.Header.Set("Accept", "application/openmetrics-text")
+	metricsRec := httptest.NewRecorder()
+	promhttp.HandlerFor(m.Registry(), promhttp.HandlerOpts{EnableOpenMetrics: true}).ServeHTTP(metricsRec, metricsReq)
+
+	body := metricsRec.Body.String()
+	if !strings.Contains(body, `trace_id="`+traceID+`"`) {
+		t.Fatalf("no exemplar for trace_id=%s on http_request_duration_seconds_bucket:\n%s", traceID, body)
 	}
 }
 
