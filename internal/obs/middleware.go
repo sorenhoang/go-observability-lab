@@ -3,10 +3,17 @@ package obs
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // responseRecorder captures the final status and bytes written, mirroring
@@ -100,13 +107,46 @@ func RequestLogger(base *slog.Logger, routeFunc func(*http.Request) string) func
 	}
 }
 
-// TraceHTTP is a pass-through stub in Phase 9 — Task 5 (Phase 11) replaces the
-// body with real span creation. It exists now so the router can settle on its
-// final middleware order without a second reorder later.
+// TraceHTTP starts a server span per request, extracting any upstream W3C
+// trace context from the incoming headers via the global propagator (HTTP
+// uses the OTel propagator; Task 5's Kafka boundary uses the hand-rolled
+// FormatTraceparent/ParseTraceparent instead, since there's no HTTP request
+// to carry a header on there). The span's trace/span IDs are stashed on the
+// context so RequestLogger's canonical line and every obs-derived logger
+// pick them up automatically.
 func TraceHTTP(routeFunc func(*http.Request) string) func(http.Handler) http.Handler {
-	_ = routeFunc
 	return func(next http.Handler) http.Handler {
-		return next
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+			ctx, span := Tracer().Start(ctx, routeFunc(r), trace.WithSpanKind(trace.SpanKindServer))
+			defer span.End()
+
+			span.SetAttributes(
+				attribute.String("http.request.method", r.Method),
+				attribute.String("http.route", routeFunc(r)),
+				attribute.String("url.path", r.URL.Path),
+			)
+
+			sc := span.SpanContext()
+			ctx = contextWithTraceIDs(ctx, sc.TraceID().String(), sc.SpanID().String())
+
+			rec := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+
+			defer func() {
+				if rp := recover(); rp != nil {
+					span.RecordError(fmt.Errorf("panic: %v", rp))
+					span.SetStatus(codes.Error, "panic")
+					panic(rp)
+				}
+			}()
+
+			next.ServeHTTP(rec, r.WithContext(ctx))
+
+			span.SetAttributes(attribute.Int("http.response.status_code", rec.status))
+			if rec.status >= http.StatusInternalServerError {
+				span.SetStatus(codes.Error, "")
+			}
+		})
 	}
 }
 

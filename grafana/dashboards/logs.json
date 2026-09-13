@@ -60,7 +60,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum(rate({service=\"app\"} | json | status>=500 [$__rate_interval]))",
+          "expr": "sum(rate({service=\"app\"} | json | status>=500 [5m]))",
           "refId": "A"
         }
       ],
@@ -98,7 +98,7 @@
       "targets": [
         {
           "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "sum by (route) (rate({service=\"app\"} | json | __error__=\"\" [$__rate_interval]))",
+          "expr": "sum by (route) (rate({service=\"app\"} | json | __error__=\"\" [5m]))",
           "refId": "A"
         }
       ],

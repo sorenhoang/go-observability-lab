@@ -50,7 +50,7 @@ LogQL can produce a numeric time series from a log stream, the same shape as
 `rate()`/`sum by (...)` in PromQL:
 
 ```logql
-sum by (route) (rate({service="app"} | json | __error__="" [$__rate_interval]))
+sum by (route) (rate({service="app"} | json | __error__="" [5m]))
 ```
 
 `__error__=""` filters out lines that failed to parse as JSON (so a malformed
@@ -60,6 +60,15 @@ log lines, computed independently of Phase 2's `http_requests_total` counter.
 When the two agree, that's a small trust-building exercise: two completely
 different pipelines (a Go middleware incrementing a counter vs. Alloy shipping
 JSON to Loki) answering the same question the same way.
+
+**Note on `$__rate_interval`:** Prometheus dashboards (Phase 5) use Grafana's
+`$__rate_interval` macro so the rate window auto-scales with the visible time
+range. Verified live against this stack's Grafana (12.3.0) + Loki (3.7.7)
+datasource, that macro is not interpolated for Loki queries — it's sent to
+Loki literally as the string `"$__rate_interval"`, which fails to parse as a
+duration. The dashboard uses a fixed `[5m]` instead, matching this lab's own
+"standardize on `[5m]`" convention (`docs/roadmap.md`) rather than working
+around the datasource gap.
 
 ## The cardinality demo
 
@@ -84,10 +93,24 @@ lesson: an unbounded label turns a handful of streams into a number that
 scales with traffic, and Loki (like Prometheus) pays for that in memory and
 query latency.
 
-**Numbers from this environment:** not yet captured — this demo needs a
-running `docker compose` stack (Docker daemon was not available while this
-phase was authored). Run the four steps above against your own stack and
-record the before/after `loki_ingester_memory_streams` values here.
+**Numbers from this environment** (captured live, `make load` running throughout,
+Alloy discovering every container on the host — not just this stack's — so
+absolute counts include unrelated projects too; the *shape* of the change is
+the point):
+
+| Point in time | `loki_ingester_memory_streams` | `loki_ingester_memory_streams_labels_bytes` |
+|---|---|---|
+| Baseline (correct config, bounded labels) | **14** | 1,307 |
+| +15s after promoting `request_id` to a label | **387** | 45,874 |
+| +30s after promoting `request_id` (still climbing) | **770** | 91,841 |
+
+Streams grew **~27x in the first 15 seconds** and kept climbing linearly for
+as long as traffic kept minting new `request_id`s — it never plateaus, unlike
+the bounded baseline. Reverting the config stops *new* high-cardinality
+streams from being created, but Loki doesn't instantly evict the ones already
+in memory — they age out on the ingester's normal idle/flush schedule (tens of
+minutes), which is itself worth knowing: a cardinality mistake in production
+doesn't self-heal the moment you fix the config, it takes time to drain.
 
 ## Retention and compaction
 

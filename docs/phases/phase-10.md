@@ -1,8 +1,11 @@
 # Phase 10 — Loki + Grafana Alloy
 
-**Status: DONE** (config authored; live verification — Alloy health, log
-arrival, the cardinality demo's real numbers — pending a `docker compose up`
-run, since the Docker daemon wasn't available while this phase was authored).
+**Status: DONE.** Verified live: fresh `make up`, Alloy's Docker pipeline
+healthy, canonical request lines queryable in Loki within seconds of
+`make load`, labels confirmed bounded (`service`/`container`/`level` only),
+"Logs" dashboard datasource + panels confirmed against real Loki queries, and
+the cardinality demo run for real (14 → 770 streams in 30s once `request_id`
+was promoted to a label).
 
 ## Objective
 
@@ -75,12 +78,20 @@ the Loki datasource.
 - [x] `Makefile` `check-config` extended; new `logs` target
 - [x] `docs/10-loki.md`, this file, README + roadmap updated
 - [x] `make test` still green — no Go file touched
-- [ ] **Pending a running Docker daemon:** `make check-config` actually
-      executed against `loki -verify-config`; fresh `make up` → Alloy
-      component green; `/loki/api/v1/labels` shows only `service`,
-      `container`, `level` (+ internals); "Logs" dashboard populated under
-      `make load`; the cardinality demo's real
-      before/after `loki_ingester_memory_streams` numbers captured in
+- [x] `make check-config` executed live against `loki -verify-config` —
+      "config is valid"
+- [x] Fresh `make up` → Alloy's Docker pipeline components all evaluated
+      clean (`discovery.docker`, `loki.source.docker`, `loki.process`,
+      `loki.write.default`)
+- [x] `/loki/api/v1/labels` confirmed: `service`, `container`, `level` (+
+      Loki's own `__stream_shard__`/`service_name` internals) — no
+      `request_id`, `route`, or `trace_id`
+- [x] Canonical `msg="request"` lines confirmed arriving in Loki via
+      `{service="app"}` within seconds of `make load`
+- [x] "Logs" dashboard's datasource + both LogQL panel queries confirmed
+      returning real data straight from Loki
+- [x] Cardinality demo run for real: 14 → 770 `loki_ingester_memory_streams`
+      in 30s once `request_id` was promoted to a label; numbers in
       `docs/10-loki.md`
 
 ## Traps to notice

@@ -284,7 +284,7 @@ Gets its own `/sr:plan` before implementation. Sketch only:
 4. **Metrics** — none new for the app; Loki exposes its own
    `loki_ingester_memory_streams` (used for the cardinality demo).
 5. **PromQL** — n/a (LogQL instead): `{service="app"} | json | level="ERROR"`,
-   `sum by (route) (rate({service="app"} | json | __error__="" [$__rate_interval]))`.
+   `sum by (route) (rate({service="app"} | json | __error__="" [5m]))`.
 6. **Dashboards** — "Logs": 5xx-log-rate stat, request-rate-by-route
    timeseries derived from logs, an ERROR-level logs panel.
 7. **Repo changes** — `loki/**`, `alloy/**`, `docker-compose.yml` (`loki`,
