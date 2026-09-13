@@ -1,11 +1,13 @@
 # go-observability-lab
 
-A learning lab for **production-style observability** with Prometheus and Grafana,
-built around a deliberately boring Go HTTP API.
+A learning lab for **production-style observability** — metrics, logs, and traces,
+correlated — built around a deliberately boring Go HTTP API.
 
-The API is a prop. The real deliverable is hands-on fluency with metrics, PromQL,
-dashboards, and alerting. Effort is intentionally weighted **~20% application code /
-~80% observability**.
+The API is a prop. The real deliverable is hands-on fluency with all three
+pillars: Prometheus/Grafana metrics, Loki logs, Tempo traces, and the exemplars/
+derived fields/trace-to-logs wiring that ties them into one click-through
+workflow. Effort is intentionally weighted **~20% application code / ~80%
+observability**.
 
 ## Approach
 
@@ -49,6 +51,7 @@ make down
 | Loki           | http://localhost:3100         | P10 |
 | Alloy           | http://localhost:12345        | P10 |
 | Tempo          | http://localhost:3200         | P11 |
+| Correlation dashboard | http://localhost:3000/d/correlation | P12 |
 
 ## Phase checklist
 
@@ -64,7 +67,7 @@ make down
 - [x] **P9** Structured logging — canonical request line, `request_id` correlation, JSON everywhere
 - [x] **P10** Loki + Grafana Alloy — log shipping and querying from Grafana
 - [x] **P11** Distributed tracing — spans, W3C propagation, Tempo
-- [ ] **P12** Correlation — exemplars, traces ↔ logs ↔ metrics pivot
+- [x] **P12** Correlation — exemplars, traces ↔ logs ↔ metrics pivot
 
 ## Docs
 
@@ -76,5 +79,6 @@ make down
 | [docs/09-structured-logging.md](docs/09-structured-logging.md) | Canonical log lines, `request_id` correlation |
 | [docs/10-loki.md](docs/10-loki.md) | Loki, Alloy, LogQL, metrics-from-logs, cardinality demo |
 | [docs/11-tracing.md](docs/11-tracing.md) | Spans, the goroutine-span trap, W3C propagation over Kafka, Tempo |
+| [docs/12-correlation.md](docs/12-correlation.md) | Exemplars, derived fields, trace-to-logs/metrics, the incident walkthrough |
 | [docs/glossary.md](docs/glossary.md) | Counter, gauge, histogram, cardinality, scrape, … |
 | [docs/phases/](docs/phases/) | Detailed build guide per phase |

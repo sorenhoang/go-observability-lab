@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -119,8 +120,8 @@ func (m *Metrics) OrderPublishError() {
 	m.orderPublishErrors.Inc()
 }
 
-func (m *Metrics) ObserveDBQuery(query, status string, d time.Duration) {
-	m.dbQueryDuration.WithLabelValues(query, status).Observe(d.Seconds())
+func (m *Metrics) ObserveDBQuery(ctx context.Context, query, status string, d time.Duration) {
+	observeWithExemplar(m.dbQueryDuration.WithLabelValues(query, status), ctx, d.Seconds())
 }
 
 func (m *Metrics) RegisterDBStats(db *sql.DB) {

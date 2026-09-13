@@ -9,3 +9,8 @@ datasources:
     isDefault: true
     jsonData:
       timeInterval: 5s
+      # Turns an exemplar's trace_id field into a "View trace" link on the
+      # datasource itself — no per-dashboard wiring needed.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo

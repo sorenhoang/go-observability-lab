@@ -43,7 +43,7 @@ func (m *Metrics) Instrument(routeFunc func(*http.Request) string) func(http.Han
 
 				elapsed := time.Since(start).Seconds()
 				m.requestsTotal.WithLabelValues(r.Method, route, strconv.Itoa(status)).Inc()
-				m.requestDuration.WithLabelValues(r.Method, route).Observe(elapsed)
+				observeWithExemplar(m.requestDuration.WithLabelValues(r.Method, route), r.Context(), elapsed)
 				m.requestDurationSummary.WithLabelValues(r.Method, route).Observe(elapsed)
 
 				if rp != nil {

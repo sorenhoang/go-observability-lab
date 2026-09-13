@@ -59,7 +59,7 @@ func main() {
 	reg.MustRegister(consumed, processing)
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+	mux.Handle("GET /metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{EnableOpenMetrics: true}))
 	srv := &http.Server{
 		Addr:              ":9002",
 		Handler:           mux,
