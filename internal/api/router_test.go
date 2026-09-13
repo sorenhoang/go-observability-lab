@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,17 +13,29 @@ import (
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
 )
 
+// discardLogger backs the helpers that don't care about log output — most
+// router tests only assert on HTTP behavior.
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
 func testRouter() http.Handler {
 	return testRouterWithPublisher(&recordingPublisher{})
 }
 
 func testRouterWithConfig(cfg config.Config) http.Handler {
-	return NewRouter(cfg, metrics.New(), newFakeStore(), passthroughCache{}, &recordingPublisher{})
+	return NewRouter(cfg, metrics.New(), discardLogger(), newFakeStore(), passthroughCache{}, &recordingPublisher{})
 }
 
 func testRouterWithPublisher(publisher orderPublisher) http.Handler {
 	m := metrics.New()
-	return NewRouter(config.Config{}, m, newFakeStore(), passthroughCache{}, publisher)
+	return NewRouter(config.Config{}, m, discardLogger(), newFakeStore(), passthroughCache{}, publisher)
+}
+
+// newTestRouterWithLogger lets logging_test.go inspect canonical log output.
+func newTestRouterWithLogger(logger *slog.Logger) http.Handler {
+	m := metrics.New()
+	return NewRouter(config.Config{}, m, logger, newFakeStore(), passthroughCache{}, &recordingPublisher{})
 }
 
 func TestHealth(t *testing.T) {

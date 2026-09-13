@@ -27,15 +27,18 @@ these *from the outside*, without shipping new code to add a `printf`.
 They are complementary. Metrics tell you *something is wrong and roughly where*;
 traces and logs tell you *exactly what*.
 
-## This lab is metrics-only
+## This lab started metrics-only
 
-On purpose. Prometheus and Grafana are the metrics tools, and metrics are where
-most people start and spend most of their operational time. Traces (Tempo /
-Jaeger) and logs (Loki) are a separate lab.
+Phases 0–8 are metrics-only on purpose: Prometheus and Grafana are the metrics
+tools, and metrics are where most people start and spend most of their
+operational time. Phases 9–12 add the other two pillars — structured logging
+(Loki) and distributed tracing (Tempo) — plus the correlation between all
+three, so the lab ends up covering the full picture, not just one third of it.
 
-Practical consequence: when a dashboard here shows "P95 latency on `/orders`
-spiked", you will *correlate it with what you did* (you toggled chaos), not
-click through to a trace. That correlation muscle is the point.
+Practical consequence of the early phases: when a dashboard shows "P95 latency
+on `/orders` spiked", you first learn to *correlate it with what you did* (you
+toggled chaos) before Phase 12 gives you a literal click-through from a
+metric's exemplar to the trace and the log line for that request.
 
 ## The RED method
 

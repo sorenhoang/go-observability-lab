@@ -3,11 +3,11 @@ package cache
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
@@ -68,10 +68,10 @@ func (c *Cache) Products(ctx context.Context, load func(context.Context) ([]stor
 			return products, nil
 		}
 		c.metrics.CacheError()
-		slog.Warn("products cache decode failed", "err", err)
+		obs.LoggerFrom(ctx).Warn("products cache decode failed", "err", err)
 	} else if err != redis.Nil {
 		c.metrics.CacheError()
-		slog.Warn("products cache unavailable; falling through", "err", err)
+		obs.LoggerFrom(ctx).Warn("products cache unavailable; falling through", "err", err)
 	}
 
 	c.metrics.CacheResult("miss")
@@ -86,7 +86,7 @@ func (c *Cache) Products(ctx context.Context, load func(context.Context) ([]stor
 	}
 	if err := c.rdb.Set(ctx, productsKey, b, 30*time.Second).Err(); err != nil {
 		c.metrics.CacheError()
-		slog.Warn("products cache set failed", "err", err)
+		obs.LoggerFrom(ctx).Warn("products cache set failed", "err", err)
 	}
 	return products, nil
 }

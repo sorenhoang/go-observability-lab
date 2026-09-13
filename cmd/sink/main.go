@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 )
 
 type amPayload struct {
@@ -39,7 +41,7 @@ func newWebhookHandler(logger *slog.Logger) http.Handler {
 }
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(obs.NewHandler(os.Stdout, slog.LevelInfo))
 	slog.SetDefault(logger)
 
 	srv := &http.Server{

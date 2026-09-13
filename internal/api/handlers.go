@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sorenhoang/go-observability-lab/internal/events"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 )
 
 type createOrderRequest struct {
@@ -117,6 +118,7 @@ func (h *Handlers) handleError(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rand.Float64() < rate {
+		obs.LoggerFrom(r.Context()).Warn("simulated failure", "route", routePattern(r))
 		writeError(w, http.StatusInternalServerError, "simulated failure")
 		return
 	}

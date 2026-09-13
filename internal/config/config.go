@@ -5,8 +5,10 @@
 package config
 
 import (
+	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,6 +42,25 @@ type Config struct {
 	// KafkaBrokers is the comma-separated Kafka bootstrap list used for
 	// best-effort order events.
 	KafkaBrokers string
+
+	// LogLevel controls the minimum severity emitted by the structured JSON
+	// logger: "debug", "info" (default), "warn", or "error".
+	LogLevel string
+}
+
+// SlogLevel maps LogLevel to a slog.Level, defaulting to Info for an unknown
+// or empty value rather than failing startup over a typo.
+func (c Config) SlogLevel() slog.Level {
+	switch strings.ToLower(c.LogLevel) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 // Load reads configuration from the environment, applying defaults for any
@@ -57,6 +78,7 @@ func Load() Config {
 		DatabaseURL:     getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
 		RedisAddr:       getenv("API_REDIS_ADDR", "redis:6379"),
 		KafkaBrokers:    getenv("API_KAFKA_BROKERS", "kafka:9092"),
+		LogLevel:        getenv("API_LOG_LEVEL", "info"),
 	}
 
 	c.ErrorRate = min(max(c.ErrorRate, 0), 1)
