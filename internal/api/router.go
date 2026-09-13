@@ -7,6 +7,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/sorenhoang/go-observability-lab/internal/config"
 	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
@@ -50,21 +52,30 @@ type orderPublisher interface {
 // It uses the standard library http.ServeMux with Go 1.22+ method/pattern
 // routing (e.g. "GET /health"). No third-party router: the point of the lab
 // is to keep the middleware seam visible, and ServeMux is enough.
-func NewRouter(cfg config.Config, m *metrics.Metrics, st dataStore, c productCache, publisher orderPublisher) http.Handler {
+func NewRouter(cfg config.Config, m *metrics.Metrics, logger *slog.Logger, st dataStore, c productCache, publisher orderPublisher) http.Handler {
 	chaos := NewChaos(m)
 	h := &Handlers{cfg: cfg, metrics: m, chaos: chaos, store: st, cache: c, events: publisher}
 	instrument := m.Instrument(routePattern)
-	// business: instrumented + subject to fault injection.
-	// plain: instrumented but never chaos-affected (health probes must stay honest).
-	// control: instrumented + token-guarded, never chaos-affected.
+	panicGuard := obs.PanicGuard(logger)
+	traceHTTP := obs.TraceHTTP(routePattern)
+	requestLogger := obs.RequestLogger(logger, routePattern)
+
+	// business: PanicGuard(TraceHTTP(RequestLogger(Instrument(Chaos(handler))))).
+	// PanicGuard outermost gives every route one place that logs a stack and
+	// returns a clean 500; RequestLogger sits inside the (future, Phase 11)
+	// span so the canonical line carries trace_id; Instrument keeps its
+	// existing RED-metric behaviour untouched.
 	business := func(fn http.HandlerFunc) http.Handler {
-		return instrument(chaos.Middleware(fn))
+		return panicGuard(traceHTTP(requestLogger(instrument(chaos.Middleware(fn)))))
 	}
+	// plain: instrumented + logged, but never chaos-affected or traced —
+	// health probes must stay honest and cheap.
 	plain := func(fn http.HandlerFunc) http.Handler {
-		return instrument(http.HandlerFunc(fn))
+		return panicGuard(requestLogger(instrument(http.HandlerFunc(fn))))
 	}
+	// control: same shape as business minus Chaos, plus the admin-token guard.
 	control := func(fn http.HandlerFunc) http.Handler {
-		return instrument(requireAdmin(cfg, http.HandlerFunc(fn)))
+		return panicGuard(traceHTTP(requestLogger(instrument(requireAdmin(cfg, http.HandlerFunc(fn))))))
 	}
 
 	mux := http.NewServeMux()

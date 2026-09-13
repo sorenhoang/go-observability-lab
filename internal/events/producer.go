@@ -9,6 +9,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 )
 
 const OrdersTopic = "orders"
@@ -75,10 +76,12 @@ func (p *Producer) PublishOrder(ctx context.Context, event OrderEvent) {
 		p.metrics.OrderPublishError()
 		return
 	}
+	log := obs.LoggerFrom(ctx)
+
 	b, err := json.Marshal(event)
 	if err != nil {
 		p.metrics.OrderPublishError()
-		slog.Warn("marshal order event failed", "err", err)
+		log.Warn("marshal order event failed", "err", err)
 		return
 	}
 	go func() {
@@ -90,7 +93,7 @@ func (p *Producer) PublishOrder(ctx context.Context, event OrderEvent) {
 		})
 		if err != nil {
 			p.metrics.OrderPublishError()
-			slog.Warn("publish order event failed", "err", err)
+			log.Warn("publish order event failed", "err", err)
 			return
 		}
 		p.metrics.OrderPublished()

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      # Task 6 (Phase 12) fills this in: a regex over the log line that turns
+      # a trace_id field into a clickable link to the Tempo datasource.
+      derivedFields: []

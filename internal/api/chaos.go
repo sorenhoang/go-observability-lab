@@ -14,6 +14,7 @@ import (
 
 	"github.com/sorenhoang/go-observability-lab/internal/config"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 )
 
 const (
@@ -62,6 +63,7 @@ func (c *Chaos) Middleware(next http.Handler) http.Handler {
 				}
 			}
 			if s.ErrorRatio > 0 && rand.Float64() < s.ErrorRatio {
+				obs.LoggerFrom(r.Context()).Warn("chaos injected failure", "route", routePattern(r))
 				writeError(w, http.StatusInternalServerError, "chaos: injected failure")
 				return
 			}

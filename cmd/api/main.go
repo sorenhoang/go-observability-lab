@@ -21,14 +21,15 @@ import (
 	"github.com/sorenhoang/go-observability-lab/internal/config"
 	"github.com/sorenhoang/go-observability-lab/internal/events"
 	"github.com/sorenhoang/go-observability-lab/internal/metrics"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 	"github.com/sorenhoang/go-observability-lab/internal/store"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	cfg := config.Load()
+	logger := slog.New(obs.NewHandler(os.Stdout, cfg.SlogLevel()))
 	slog.SetDefault(logger)
 
-	cfg := config.Load()
 	m := metrics.New()
 	if cfg.AdminToken == "" {
 		slog.Warn("API_ADMIN_TOKEN is unset; chaos control endpoints are open")
@@ -57,7 +58,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.NewRouter(cfg, m, st, productCache, producer),
+		Handler: api.NewRouter(cfg, m, logger, st, productCache, producer),
 		// ReadHeaderTimeout guards against slowloris; without it gosec (G112)
 		// flags the server and a single slow client can pin a connection.
 		ReadHeaderTimeout: 5 * time.Second,

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"testing"
 )
 
@@ -35,7 +36,7 @@ func TestLoadClampsMinAboveMax(t *testing.T) {
 
 func TestLoadDefaults(t *testing.T) {
 	// Force-unset so the test is hermetic regardless of the caller's env.
-	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN", "API_DATABASE_URL", "API_REDIS_ADDR", "API_KAFKA_BROKERS"} {
+	for _, k := range []string{"API_ADDR", "API_ERROR_RATE", "API_SLOW_MIN_MS", "API_SLOW_MAX_MS", "API_ADMIN_TOKEN", "API_DATABASE_URL", "API_REDIS_ADDR", "API_KAFKA_BROKERS", "API_LOG_LEVEL"} {
 		t.Setenv(k, "")
 	}
 
@@ -61,6 +62,27 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if c.KafkaBrokers != "kafka:9092" {
 		t.Fatalf("KafkaBrokers = %q, want kafka:9092", c.KafkaBrokers)
+	}
+	if c.LogLevel != "info" {
+		t.Fatalf("LogLevel = %q, want info", c.LogLevel)
+	}
+}
+
+func TestSlogLevelMapsKnownValues(t *testing.T) {
+	for _, c := range []struct {
+		level string
+		want  slog.Level
+	}{
+		{"debug", slog.LevelDebug},
+		{"info", slog.LevelInfo},
+		{"warn", slog.LevelWarn},
+		{"error", slog.LevelError},
+		{"bogus", slog.LevelInfo},
+		{"", slog.LevelInfo},
+	} {
+		if got := (Config{LogLevel: c.level}).SlogLevel(); got != c.want {
+			t.Fatalf("SlogLevel(%q) = %v, want %v", c.level, got, c.want)
+		}
 	}
 }
 

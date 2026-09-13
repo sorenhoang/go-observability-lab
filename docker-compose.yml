@@ -136,6 +136,29 @@ services:
     build: .
     entrypoint: ["/sink"]
 
+  loki:
+    image: grafana/loki:3.7.7
+    ports:
+      - "${LOKI_HOST_PORT:-3100}:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+
+  alloy:
+    image: grafana/alloy:v1.19.2
+    ports:
+      - "${ALLOY_HOST_PORT:-12345}:12345"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./alloy:/etc/alloy:ro
+    command:
+      - run
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - /etc/alloy/config.alloy
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana:12.3.0
     ports:
@@ -150,6 +173,7 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+      - loki
 
   k6:
     image: grafana/k6:2.2.0
@@ -169,3 +193,4 @@ volumes:
   grafana_data:
   prometheus_data:
   postgres_data:
+  loki_data:

@@ -17,10 +17,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/segmentio/kafka-go"
 	"github.com/sorenhoang/go-observability-lab/internal/events"
+	"github.com/sorenhoang/go-observability-lab/internal/obs"
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(obs.NewHandler(os.Stdout, slog.LevelInfo))
 	slog.SetDefault(logger)
 
 	brokers := splitBrokers(getenv("CONSUMER_KAFKA_BROKERS", "kafka:9092"))
