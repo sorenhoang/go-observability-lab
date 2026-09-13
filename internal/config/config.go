@@ -77,18 +77,18 @@ func (c Config) SlogLevel() slog.Level {
 // put the API into a nonsensical state.
 func Load() Config {
 	c := Config{
-		Addr:             getenv("API_ADDR", ":8080"),
+		Addr:             Getenv("API_ADDR", ":8080"),
 		ShutdownTimeout:  getenvDuration("API_SHUTDOWN_TIMEOUT", 10*time.Second),
-		SlowMinMs:        getenvInt("API_SLOW_MIN_MS", 50),
-		SlowMaxMs:        getenvInt("API_SLOW_MAX_MS", 2000),
-		ErrorRate:        getenvFloat("API_ERROR_RATE", 0.3),
-		AdminToken:       getenv("API_ADMIN_TOKEN", ""),
-		DatabaseURL:      getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
-		RedisAddr:        getenv("API_REDIS_ADDR", "redis:6379"),
-		KafkaBrokers:     getenv("API_KAFKA_BROKERS", "kafka:9092"),
-		LogLevel:         getenv("API_LOG_LEVEL", "info"),
-		OTLPEndpoint:     getenv("API_OTLP_ENDPOINT", ""),
-		TraceSampleRatio: getenvFloat("API_TRACE_SAMPLE_RATIO", 1.0),
+		SlowMinMs:        GetenvInt("API_SLOW_MIN_MS", 50),
+		SlowMaxMs:        GetenvInt("API_SLOW_MAX_MS", 2000),
+		ErrorRate:        GetenvFloat("API_ERROR_RATE", 0.3),
+		AdminToken:       Getenv("API_ADMIN_TOKEN", ""),
+		DatabaseURL:      Getenv("API_DATABASE_URL", "postgres://lab:lab@postgres:5432/lab?sslmode=disable"),
+		RedisAddr:        Getenv("API_REDIS_ADDR", "redis:6379"),
+		KafkaBrokers:     Getenv("API_KAFKA_BROKERS", "kafka:9092"),
+		LogLevel:         Getenv("API_LOG_LEVEL", "info"),
+		OTLPEndpoint:     Getenv("API_OTLP_ENDPOINT", ""),
+		TraceSampleRatio: GetenvFloat("API_TRACE_SAMPLE_RATIO", 1.0),
 	}
 
 	c.ErrorRate = min(max(c.ErrorRate, 0), 1)
@@ -100,7 +100,12 @@ func Load() Config {
 	return c
 }
 
-func getenv(key, fallback string) string {
+// Getenv, GetenvInt, and GetenvFloat are exported so cmd/consumer — which
+// has its own small set of env vars and no Config struct of its own — reads
+// the environment the same way the API does, instead of a second copy of
+// the same three functions.
+
+func Getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
@@ -116,7 +121,7 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 	return fallback
 }
 
-func getenvInt(key string, fallback int) int {
+func GetenvInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
@@ -125,7 +130,7 @@ func getenvInt(key string, fallback int) int {
 	return fallback
 }
 
-func getenvFloat(key string, fallback float64) float64 {
+func GetenvFloat(key string, fallback float64) float64 {
 	if v := os.Getenv(key); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {
 			return f

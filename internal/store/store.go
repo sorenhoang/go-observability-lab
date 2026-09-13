@@ -1,3 +1,5 @@
+// Package store is the Postgres persistence layer (users, products, orders),
+// with every query timed and traced through timed().
 package store
 
 import (

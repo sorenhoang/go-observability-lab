@@ -1,3 +1,6 @@
+// Package cache is a read-through Redis cache in front of the products
+// query. A Redis outage degrades to Disabled (every call misses straight to
+// the store), never to a request failure.
 package cache
 
 import (
